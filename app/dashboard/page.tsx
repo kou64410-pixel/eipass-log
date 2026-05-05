@@ -25,7 +25,16 @@ function extractChapter(qno: string): number | null {
   return null
 }
 
-type RoundStat = { sankaku: number; batsu: number; hasData: boolean }
+function daysUntil(dateStr: string): number {
+  if (!dateStr) return 0
+  const target = new Date(dateStr)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  target.setHours(0, 0, 0, 0)
+  return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+type RoundStat = { sankaku: number; batsu: number; total: number; hasData: boolean }
 
 type TypeData = {
   r1Count: number
@@ -34,10 +43,22 @@ type TypeData = {
   batsu: number
   chapterDist: { ch: number; sankaku: number; batsu: number }[]
   dailyCounts: { date: string; dayLabel: string; count: number }[]
-  roundTrend: RoundStat[]  // index 0=1周目, 1=2周目, 2=3周目
+  roundTrend: RoundStat[]
 }
 
 type DashData = Record<string, TypeData>
+
+type GoalFields = {
+  round1_date: string
+  round2_date: string
+  round3_date: string
+  mock_exam_date: string
+}
+type Goals = Record<string, GoalFields>
+
+const emptyGoal = (): GoalFields => ({
+  round1_date: '', round2_date: '', round3_date: '', mock_exam_date: '',
+})
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -45,13 +66,41 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashData | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeType, setActiveType] = useState<'MC' | 'TBS'>('MC')
+  const [goals, setGoals] = useState<Goals>({ MC: emptyGoal(), TBS: emptyGoal() })
+  const [goalSaving, setGoalSaving] = useState(false)
+  const [goalSaved, setGoalSaved] = useState(false)
 
   useEffect(() => {
     const saved = localStorage.getItem('eipass_code')
     if (!saved) { router.replace('/'); return }
     setCode(saved)
-    loadData(saved)
+    loadAll(saved)
   }, [router])
+
+  async function loadAll(inviteCode: string) {
+    await Promise.all([loadData(inviteCode), loadGoals(inviteCode)])
+  }
+
+  async function loadGoals(inviteCode: string) {
+    const { data: rows } = await supabase
+      .from('goals')
+      .select('*')
+      .eq('code', inviteCode)
+
+    if (rows && rows.length > 0) {
+      const newGoals: Goals = { MC: emptyGoal(), TBS: emptyGoal() }
+      for (const row of rows) {
+        const t = row.type || 'MC'
+        newGoals[t] = {
+          round1_date: row.round1_date || '',
+          round2_date: row.round2_date || '',
+          round3_date: row.round3_date || '',
+          mock_exam_date: row.mock_exam_date || '',
+        }
+      }
+      setGoals(newGoals)
+    }
+  }
 
   async function loadData(inviteCode: string) {
     const today = new Date().toISOString().split('T')[0]
@@ -65,13 +114,10 @@ export default function DashboardPage() {
     ])
 
     const result: DashData = {}
-
     for (const type of ['MC', 'TBS']) {
-      // Daily counts (last 7 days)
       const dailyCounts: TypeData['dailyCounts'] = []
       for (let i = 6; i >= 0; i--) {
-        const d = new Date()
-        d.setDate(d.getDate() - i)
+        const d = new Date(); d.setDate(d.getDate() - i)
         dailyCounts.push({ date: d.toISOString().split('T')[0], dayLabel: DAY_JP[d.getDay()], count: 0 })
       }
       if (recentResults) {
@@ -82,7 +128,6 @@ export default function DashboardPage() {
         }
       }
 
-      // Round 1 stats + chapter dist
       const r1 = (allResults || []).filter(r => (r.type || 'MC') === type && r.round === 1)
       let maru = 0, sankaku = 0, batsu = 0
       const chMap: Record<number, { sankaku: number; batsu: number }> = {}
@@ -98,18 +143,16 @@ export default function DashboardPage() {
         }
       }
       const chapterDist = Array.from({ length: 21 }, (_, i) => ({
-        ch: i + 1,
-        sankaku: chMap[i + 1]?.sankaku ?? 0,
-        batsu: chMap[i + 1]?.batsu ?? 0,
+        ch: i + 1, sankaku: chMap[i + 1]?.sankaku ?? 0, batsu: chMap[i + 1]?.batsu ?? 0,
       }))
 
-      // Round trend (△× per round)
       const roundTrend: RoundStat[] = [1, 2, 3].map(rnd => {
         const rows = (allResults || []).filter(r => (r.type || 'MC') === type && r.round === rnd)
-        if (rows.length === 0) return { sankaku: 0, batsu: 0, hasData: false }
+        if (rows.length === 0) return { sankaku: 0, batsu: 0, total: 0, hasData: false }
         return {
           sankaku: rows.filter(r => r.rating === '△').length,
           batsu: rows.filter(r => r.rating === '×').length,
+          total: rows.length,
           hasData: true,
         }
       })
@@ -121,6 +164,46 @@ export default function DashboardPage() {
     setLoading(false)
   }
 
+  async function saveGoals() {
+    if (!code) return
+    setGoalSaving(true)
+    const goal = goals[activeType]
+
+    const payload = {
+      code,
+      type: activeType,
+      round1_date: goal.round1_date || null,
+      round2_date: goal.round2_date || null,
+      round3_date: goal.round3_date || null,
+      mock_exam_date: goal.mock_exam_date || null,
+      updated_at: new Date().toISOString(),
+    }
+
+    const { data: existing } = await supabase
+      .from('goals')
+      .select('code')
+      .eq('code', code)
+      .eq('type', activeType)
+      .single()
+
+    if (existing) {
+      await supabase.from('goals').update(payload).eq('code', code).eq('type', activeType)
+    } else {
+      await supabase.from('goals').insert(payload)
+    }
+
+    setGoalSaving(false)
+    setGoalSaved(true)
+    setTimeout(() => setGoalSaved(false), 2000)
+  }
+
+  function updateGoal(field: keyof GoalFields, value: string) {
+    setGoals(prev => ({
+      ...prev,
+      [activeType]: { ...prev[activeType], [field]: value },
+    }))
+  }
+
   if (!code) return null
 
   const d = data?.[activeType]
@@ -129,6 +212,28 @@ export default function DashboardPage() {
   const maxChBar = d ? Math.max(...d.chapterDist.map(c => c.sankaku + c.batsu), 1) : 1
   const maxDay = d ? Math.max(...d.dailyCounts.map(x => x.count), 1) : 1
   const maxRoundBar = d ? Math.max(...d.roundTrend.map(r => r.sankaku + r.batsu), 1) : 1
+
+  const g = goals[activeType]
+  const r1Complete = d ? d.r1Count >= totalQ : false
+  const r2HasData = d ? d.roundTrend[1].hasData : false
+
+  // Round 1 goal metrics
+  const r1Remaining = d ? Math.max(totalQ - d.r1Count, 0) : 0
+  const r1Days = daysUntil(g.round1_date)
+  const r1Quota = r1Days > 0 && r1Remaining > 0 ? Math.ceil(r1Remaining / r1Days) : null
+
+  // Round 2 goal metrics (△+× from round 1)
+  const r2Remaining = d ? d.sankaku + d.batsu : 0
+  const r2Days = daysUntil(g.round2_date)
+  const r2Quota = r2Days > 0 && r2Remaining > 0 ? Math.ceil(r2Remaining / r2Days) : null
+
+  // Round 3 goal metrics (△+× from round 2)
+  const r3Remaining = d ? d.roundTrend[1].sankaku + d.roundTrend[1].batsu : 0
+  const r3Days = daysUntil(g.round3_date)
+  const r3Quota = r3Days > 0 && r3Remaining > 0 ? Math.ceil(r3Remaining / r3Days) : null
+
+  // Mock exam countdown
+  const mockDays = daysUntil(g.mock_exam_date)
 
   return (
     <div className="min-h-screen bg-slate-50 pb-8">
@@ -147,9 +252,7 @@ export default function DashboardPage() {
       <div className="max-w-2xl mx-auto px-4 pt-4">
         <div className="flex gap-2 bg-slate-100 p-1 rounded-xl">
           {(['MC', 'TBS'] as const).map(type => (
-            <button
-              key={type}
-              onClick={() => setActiveType(type)}
+            <button key={type} onClick={() => setActiveType(type)}
               className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-colors ${
                 activeType === type ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-500'
               }`}
@@ -166,6 +269,191 @@ export default function DashboardPage() {
         </div>
       ) : d && (
         <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
+
+          {/* 目標設定 */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-slate-700">目標設定</h2>
+              <span className="text-xs text-slate-400">{activeType}</span>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {/* 模擬試験日 */}
+              <div className="px-5 py-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-slate-600">模擬試験日</p>
+                  <input
+                    type="date"
+                    value={g.mock_exam_date}
+                    onChange={e => updateGoal('mock_exam_date', e.target.value)}
+                    className="text-sm border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                {g.mock_exam_date && (
+                  <div className={`mt-2 text-center py-3 rounded-xl ${
+                    mockDays > 0 ? 'bg-blue-50' : mockDays === 0 ? 'bg-orange-50' : 'bg-slate-50'
+                  }`}>
+                    {mockDays > 0 ? (
+                      <>
+                        <p className="text-3xl font-bold text-blue-600">{mockDays}<span className="text-base ml-1">日</span></p>
+                        <p className="text-xs text-blue-400 mt-0.5">試験まで</p>
+                      </>
+                    ) : mockDays === 0 ? (
+                      <p className="text-base font-bold text-orange-500">本日が試験日です！</p>
+                    ) : (
+                      <p className="text-sm text-slate-400">試験日が過ぎています</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 1周目目標日 */}
+              <div className="px-5 py-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-slate-600">1周目 完了目標日</p>
+                  <input
+                    type="date"
+                    value={g.round1_date}
+                    onChange={e => updateGoal('round1_date', e.target.value)}
+                    className="text-sm border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                {g.round1_date && r1Days > 0 && (
+                  <div className="mt-2 bg-slate-50 rounded-xl p-3 grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <p className="text-lg font-bold text-slate-700">{r1Days}</p>
+                      <p className="text-xs text-slate-400">残り日数</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-slate-700">{r1Remaining}</p>
+                      <p className="text-xs text-slate-400">残り問題数</p>
+                    </div>
+                    <div>
+                      {r1Quota !== null ? (
+                        <>
+                          <p className="text-lg font-bold text-blue-600">{r1Quota}</p>
+                          <p className="text-xs text-slate-400">1日のノルマ</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-lg font-bold text-green-600">✓</p>
+                          <p className="text-xs text-slate-400">完了済み</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {g.round1_date && r1Days <= 0 && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    {r1Days === 0 ? '本日が目標日です' : '目標日が過ぎています'}
+                  </p>
+                )}
+              </div>
+
+              {/* 2周目目標日 */}
+              <div className="px-5 py-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-slate-600">2周目 完了目標日</p>
+                  {r1Complete ? (
+                    <input
+                      type="date"
+                      value={g.round2_date}
+                      onChange={e => updateGoal('round2_date', e.target.value)}
+                      className="text-sm border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  ) : (
+                    <span className="text-xs text-slate-400">未設定</span>
+                  )}
+                </div>
+                {!r1Complete ? (
+                  <p className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2">1周目完了後に表示</p>
+                ) : g.round2_date && r2Days > 0 ? (
+                  <div className="mt-2 bg-slate-50 rounded-xl p-3 grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <p className="text-lg font-bold text-slate-700">{r2Days}</p>
+                      <p className="text-xs text-slate-400">残り日数</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-slate-700">{r2Remaining}</p>
+                      <p className="text-xs text-slate-400">残り問題数</p>
+                    </div>
+                    <div>
+                      {r2Quota !== null ? (
+                        <>
+                          <p className="text-lg font-bold text-blue-600">{r2Quota}</p>
+                          <p className="text-xs text-slate-400">1日のノルマ</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-lg font-bold text-green-600">✓</p>
+                          <p className="text-xs text-slate-400">完了済み</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* 3周目目標日 */}
+              <div className="px-5 py-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-slate-600">3周目 完了目標日</p>
+                  {r2HasData ? (
+                    <input
+                      type="date"
+                      value={g.round3_date}
+                      onChange={e => updateGoal('round3_date', e.target.value)}
+                      className="text-sm border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  ) : (
+                    <span className="text-xs text-slate-400">未設定</span>
+                  )}
+                </div>
+                {!r2HasData ? (
+                  <p className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2">2周目完了後に表示</p>
+                ) : g.round3_date && r3Days > 0 ? (
+                  <div className="mt-2 bg-slate-50 rounded-xl p-3 grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <p className="text-lg font-bold text-slate-700">{r3Days}</p>
+                      <p className="text-xs text-slate-400">残り日数</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-slate-700">{r3Remaining}</p>
+                      <p className="text-xs text-slate-400">残り問題数</p>
+                    </div>
+                    <div>
+                      {r3Quota !== null ? (
+                        <>
+                          <p className="text-lg font-bold text-blue-600">{r3Quota}</p>
+                          <p className="text-xs text-slate-400">1日のノルマ</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-lg font-bold text-green-600">✓</p>
+                          <p className="text-xs text-slate-400">完了済み</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Save button */}
+            <div className="px-5 pb-5">
+              <button
+                onClick={saveGoals}
+                disabled={goalSaving}
+                className={`w-full py-3 rounded-xl font-semibold text-base transition-colors ${
+                  goalSaved
+                    ? 'bg-green-100 text-green-700 border border-green-300'
+                    : 'bg-blue-500 text-white active:bg-blue-600 disabled:opacity-50'
+                }`}
+              >
+                {goalSaving ? '保存中...' : goalSaved ? '保存しました！' : '目標を保存'}
+              </button>
+            </div>
+          </div>
 
           {/* 1周目完了率 */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
@@ -207,35 +495,24 @@ export default function DashboardPage() {
             <h2 className="text-base font-semibold text-slate-700 mb-4">周回別 △×推移</h2>
             <div className="flex gap-4">
               {d.roundTrend.map((stat, i) => {
-                const label = `${i + 1}周目`
                 const sankakuH = stat.hasData ? Math.max((stat.sankaku / maxRoundBar) * 80, stat.sankaku > 0 ? 4 : 0) : 0
                 const batsuH = stat.hasData ? Math.max((stat.batsu / maxRoundBar) * 80, stat.batsu > 0 ? 4 : 0) : 0
                 return (
                   <div key={i} className="flex-1 flex flex-col items-center">
                     {stat.hasData ? (
                       <>
-                        {/* Count labels */}
                         <div className="flex gap-1 mb-1">
                           {stat.sankaku > 0 && <span className="text-xs text-yellow-500 font-semibold">{stat.sankaku}</span>}
                           {stat.sankaku > 0 && stat.batsu > 0 && <span className="text-xs text-slate-300">/</span>}
                           {stat.batsu > 0 && <span className="text-xs text-red-500 font-semibold">{stat.batsu}</span>}
                           {stat.sankaku === 0 && stat.batsu === 0 && <span className="text-xs text-green-500 font-semibold">全○</span>}
                         </div>
-                        {/* Bars */}
                         <div className="flex gap-1 items-end" style={{ height: '80px' }}>
                           <div className="w-8 flex items-end justify-center" style={{ height: '80px' }}>
-                            {sankakuH > 0 ? (
-                              <div className="w-full bg-yellow-400 rounded-t-sm" style={{ height: `${sankakuH}px` }} />
-                            ) : (
-                              <div className="w-full h-1 bg-slate-100 rounded-sm" />
-                            )}
+                            {sankakuH > 0 ? <div className="w-full bg-yellow-400 rounded-t-sm" style={{ height: `${sankakuH}px` }} /> : <div className="w-full h-1 bg-slate-100 rounded-sm" />}
                           </div>
                           <div className="w-8 flex items-end justify-center" style={{ height: '80px' }}>
-                            {batsuH > 0 ? (
-                              <div className="w-full bg-red-400 rounded-t-sm" style={{ height: `${batsuH}px` }} />
-                            ) : (
-                              <div className="w-full h-1 bg-slate-100 rounded-sm" />
-                            )}
+                            {batsuH > 0 ? <div className="w-full bg-red-400 rounded-t-sm" style={{ height: `${batsuH}px` }} /> : <div className="w-full h-1 bg-slate-100 rounded-sm" />}
                           </div>
                         </div>
                       </>
@@ -244,18 +521,14 @@ export default function DashboardPage() {
                         <span className="text-xs text-slate-300 font-medium">未実施</span>
                       </div>
                     )}
-                    <p className="text-xs text-slate-500 mt-2 font-medium">{label}</p>
+                    <p className="text-xs text-slate-500 mt-2 font-medium">{i + 1}周目</p>
                   </div>
                 )
               })}
             </div>
             <div className="flex gap-4 mt-4 pt-3 border-t border-slate-100">
-              <span className="flex items-center gap-1.5 text-xs text-slate-500">
-                <span className="w-3 h-3 rounded-sm bg-yellow-400 inline-block" />△ 要復習
-              </span>
-              <span className="flex items-center gap-1.5 text-xs text-slate-500">
-                <span className="w-3 h-3 rounded-sm bg-red-400 inline-block" />× 未理解
-              </span>
+              <span className="flex items-center gap-1.5 text-xs text-slate-500"><span className="w-3 h-3 rounded-sm bg-yellow-400 inline-block" />△ 要復習</span>
+              <span className="flex items-center gap-1.5 text-xs text-slate-500"><span className="w-3 h-3 rounded-sm bg-red-400 inline-block" />× 未理解</span>
             </div>
           </div>
 
@@ -280,12 +553,8 @@ export default function DashboardPage() {
               })}
             </div>
             <div className="flex gap-4 mt-4 pt-3 border-t border-slate-100">
-              <span className="flex items-center gap-1.5 text-xs text-slate-500">
-                <span className="w-3 h-3 rounded-sm bg-yellow-400 inline-block" />△ 要復習
-              </span>
-              <span className="flex items-center gap-1.5 text-xs text-slate-500">
-                <span className="w-3 h-3 rounded-sm bg-red-400 inline-block" />× 未理解
-              </span>
+              <span className="flex items-center gap-1.5 text-xs text-slate-500"><span className="w-3 h-3 rounded-sm bg-yellow-400 inline-block" />△ 要復習</span>
+              <span className="flex items-center gap-1.5 text-xs text-slate-500"><span className="w-3 h-3 rounded-sm bg-red-400 inline-block" />× 未理解</span>
             </div>
           </div>
 
@@ -299,10 +568,7 @@ export default function DashboardPage() {
                   <div key={date} className="flex-1 flex flex-col items-center gap-1">
                     {count > 0 && <span className="text-xs text-slate-500 leading-none">{count}</span>}
                     <div className="w-full flex items-end justify-center" style={{ height: '72px' }}>
-                      {barH > 0
-                        ? <div className="w-full bg-blue-400 rounded-t-sm" style={{ height: `${barH}px` }} />
-                        : <div className="w-full" />
-                      }
+                      {barH > 0 ? <div className="w-full bg-blue-400 rounded-t-sm" style={{ height: `${barH}px` }} /> : <div className="w-full" />}
                     </div>
                     <span className="text-xs text-slate-500 leading-none">{dayLabel}</span>
                   </div>
