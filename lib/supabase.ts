@@ -9,6 +9,7 @@ export type Rating = '○' | '△' | '×'
 
 export interface InviteCode {
   code: string
+  name: string
   subject: string
   created_at: string
 }
