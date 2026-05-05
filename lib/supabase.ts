@@ -31,7 +31,18 @@ export interface Result {
   title: string
   round: number
   rating: Rating
+  reason: string | null
   memo: string
   answered_at: string
   created_at: string
 }
+
+export const REASON_OPTIONS = [
+  '論点を知らなかった',
+  '知っていたが適用を間違えた',
+  '計算ミス',
+  '問題文の読み間違い',
+  '勘での正解',
+] as const
+
+export type Reason = typeof REASON_OPTIONS[number]

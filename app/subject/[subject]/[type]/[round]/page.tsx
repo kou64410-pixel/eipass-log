@@ -3,11 +3,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { supabase, type Rating, type Question, type Result } from '@/lib/supabase'
+import { supabase, type Rating, type Question, type Result, REASON_OPTIONS } from '@/lib/supabase'
 
 type QuestionWithResult = Question & {
   result?: Result
   pendingRating?: Rating
+  pendingReason?: string | null
   pendingMemo?: string
   pendingDate?: string
   saving?: boolean
@@ -31,6 +32,49 @@ function extractChapter(qno: string): number | null {
   return null
 }
 
+// ×理由ポップアップ
+function ReasonPopup({
+  onSelect,
+  onSkip,
+}: {
+  onSelect: (reason: string) => void
+  onSkip: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-0 pb-0">
+      <div className="w-full max-w-lg bg-white rounded-t-3xl shadow-xl pb-safe">
+        <div className="px-5 pt-5 pb-2">
+          <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4" />
+          <h2 className="text-lg font-bold text-slate-800 text-center mb-1">なぜ×でしたか？</h2>
+          <p className="text-xs text-slate-400 text-center mb-4">理由を選択してください（任意）</p>
+        </div>
+        <div className="px-4 space-y-2 pb-3">
+          {REASON_OPTIONS.map((reason, i) => (
+            <button
+              key={reason}
+              onClick={() => onSelect(reason)}
+              className="w-full flex items-center gap-3 px-4 py-3.5 bg-slate-50 rounded-xl text-left active:bg-red-50 transition-colors"
+            >
+              <span className="w-6 h-6 flex items-center justify-center rounded-full bg-red-100 text-red-600 font-bold text-xs shrink-0">
+                {i + 1}
+              </span>
+              <span className="text-slate-700 font-medium text-sm">{reason}</span>
+            </button>
+          ))}
+        </div>
+        <div className="px-4 pb-6">
+          <button
+            onClick={onSkip}
+            className="w-full py-3 text-slate-400 text-sm font-medium"
+          >
+            スキップ
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function QuestionListPage() {
   const router = useRouter()
   const params = useParams()
@@ -48,6 +92,9 @@ export default function QuestionListPage() {
   const [selectedChapter, setSelectedChapter] = useState<number | null>(null)
   const [filterUnanswered, setFilterUnanswered] = useState(false)
   const [filterPrevBatsu, setFilterPrevBatsu] = useState(false)
+
+  // ×理由ポップアップ
+  const [reasonPopupId, setReasonPopupId] = useState<string | null>(null)
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -103,6 +150,7 @@ export default function QuestionListPage() {
       ...q,
       result: resultMap.get(q.question_no),
       pendingRating: resultMap.get(q.question_no)?.rating,
+      pendingReason: resultMap.get(q.question_no)?.reason ?? null,
       pendingMemo: resultMap.get(q.question_no)?.memo || '',
       pendingDate: resultMap.get(q.question_no)?.answered_at || today,
     })))
@@ -121,13 +169,38 @@ export default function QuestionListPage() {
     setQuestions(prev => prev.map(q => q.id === id ? { ...q, ...patch } : q))
   }
 
+  // ×を選択したときにポップアップを表示
+  function handleRatingSelect(q: QuestionWithResult, rating: Rating) {
+    updateQuestion(q.id, { pendingRating: rating })
+    if (rating === '×') {
+      setReasonPopupId(q.id)
+    } else {
+      // ×以外に変更した場合はreasonをクリア
+      updateQuestion(q.id, { pendingRating: rating, pendingReason: null })
+    }
+  }
+
+  function handleReasonSelect(reason: string) {
+    if (!reasonPopupId) return
+    updateQuestion(reasonPopupId, { pendingReason: reason })
+    setReasonPopupId(null)
+  }
+
+  function handleReasonSkip() {
+    if (!reasonPopupId) return
+    updateQuestion(reasonPopupId, { pendingReason: null })
+    setReasonPopupId(null)
+  }
+
   async function saveQuestion(q: QuestionWithResult) {
     if (!q.pendingRating || !code) return
     updateQuestion(q.id, { saving: true, saved: false })
     const payload = {
       code, subject, type,
       question_no: q.question_no, title: q.title, round,
-      rating: q.pendingRating, memo: q.pendingMemo || '',
+      rating: q.pendingRating,
+      reason: q.pendingRating === '×' ? (q.pendingReason ?? null) : null,
+      memo: q.pendingMemo || '',
       answered_at: q.pendingDate || today,
     }
     if (q.result) {
@@ -159,6 +232,14 @@ export default function QuestionListPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
+      {/* ×理由ポップアップ */}
+      {reasonPopupId && (
+        <ReasonPopup
+          onSelect={handleReasonSelect}
+          onSkip={handleReasonSkip}
+        />
+      )}
+
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-slate-200">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
@@ -180,9 +261,7 @@ export default function QuestionListPage() {
               <button
                 onClick={() => setSelectedChapter(null)}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-                  selectedChapter === null
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-slate-100 text-slate-600'
+                  selectedChapter === null ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600'
                 }`}
               >
                 全て
@@ -192,9 +271,7 @@ export default function QuestionListPage() {
                   key={ch}
                   onClick={() => setSelectedChapter(selectedChapter === ch ? null : ch)}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-                    selectedChapter === ch
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-slate-100 text-slate-600'
+                    selectedChapter === ch ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600'
                   }`}
                 >
                   Ch{ch}
@@ -210,9 +287,7 @@ export default function QuestionListPage() {
             <button
               onClick={() => setFilterUnanswered(v => !v)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                filterUnanswered
-                  ? 'bg-slate-700 text-white'
-                  : 'bg-slate-100 text-slate-600'
+                filterUnanswered ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'
               }`}
             >
               未回答のみ
@@ -221,17 +296,13 @@ export default function QuestionListPage() {
               <button
                 onClick={() => setFilterPrevBatsu(v => !v)}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                  filterPrevBatsu
-                    ? 'bg-red-500 text-white'
-                    : 'bg-slate-100 text-slate-600'
+                  filterPrevBatsu ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-600'
                 }`}
               >
                 前回×のみ
               </button>
             )}
-            <span className="ml-auto text-xs text-slate-400 self-center">
-              {visibleQuestions.length}問表示
-            </span>
+            <span className="ml-auto text-xs text-slate-400 self-center">{visibleQuestions.length}問表示</span>
           </div>
         )}
       </div>
@@ -243,9 +314,7 @@ export default function QuestionListPage() {
       ) : questions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
           <p className="text-slate-500 text-lg">表示する問題がありません</p>
-          {round > 1 && (
-            <p className="text-slate-400 text-sm mt-2">{round - 1}周目に△・×の問題がありません</p>
-          )}
+          {round > 1 && <p className="text-slate-400 text-sm mt-2">{round - 1}周目に△・×の問題がありません</p>}
         </div>
       ) : visibleQuestions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
@@ -262,6 +331,7 @@ export default function QuestionListPage() {
           {visibleQuestions.map(q => {
             const isExpanded = expandedId === q.id
             const currentRating = q.result?.rating || q.pendingRating
+            const savedReason = q.result?.reason
             const isUnanswered = !q.result
             const ratingColor = currentRating === '○'
               ? 'border-green-400 bg-green-50'
@@ -299,6 +369,15 @@ export default function QuestionListPage() {
                         })()}
                       </div>
                       <p className="text-slate-800 font-medium mt-0.5 leading-snug">{q.title}</p>
+                      {/* 保存済みの×理由タグ */}
+                      {savedReason && currentRating === '×' && (
+                        <span className="inline-flex items-center gap-1 mt-1.5 text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                          </svg>
+                          {savedReason}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {currentRating && (
@@ -321,13 +400,14 @@ export default function QuestionListPage() {
 
                 {isExpanded && (
                   <div className="px-4 pb-4 border-t border-slate-200 pt-4 space-y-4">
+                    {/* Rating buttons */}
                     <div>
                       <p className="text-sm font-medium text-slate-600 mb-2">評価</p>
                       <div className="flex gap-3">
                         {(['○', '△', '×'] as Rating[]).map(r => (
                           <button
                             key={r}
-                            onClick={() => updateQuestion(q.id, { pendingRating: r })}
+                            onClick={() => handleRatingSelect(q, r)}
                             className={`flex-1 py-3 rounded-xl text-xl font-bold border-2 transition-all ${
                               q.pendingRating === r
                                 ? r === '○' ? 'bg-green-500 border-green-500 text-white'
@@ -342,8 +422,31 @@ export default function QuestionListPage() {
                           </button>
                         ))}
                       </div>
+                      {/* 選択中の×理由（保存前プレビュー） */}
+                      {q.pendingRating === '×' && q.pendingReason && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">
+                            {q.pendingReason}
+                          </span>
+                          <button
+                            onClick={() => setReasonPopupId(q.id)}
+                            className="text-xs text-slate-400 underline"
+                          >
+                            変更
+                          </button>
+                        </div>
+                      )}
+                      {q.pendingRating === '×' && !q.pendingReason && (
+                        <button
+                          onClick={() => setReasonPopupId(q.id)}
+                          className="mt-2 text-xs text-red-400 underline"
+                        >
+                          × の理由を選択
+                        </button>
+                      )}
                     </div>
 
+                    {/* Date */}
                     <div>
                       <p className="text-sm font-medium text-slate-600 mb-2">日付</p>
                       <input
@@ -354,6 +457,7 @@ export default function QuestionListPage() {
                       />
                     </div>
 
+                    {/* Memo */}
                     <div>
                       <p className="text-sm font-medium text-slate-600 mb-2">メモ</p>
                       <textarea
