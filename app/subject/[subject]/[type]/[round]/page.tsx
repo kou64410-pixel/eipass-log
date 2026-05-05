@@ -14,6 +14,23 @@ type QuestionWithResult = Question & {
   saved?: boolean
 }
 
+function extractChapter(qno: string): number | null {
+  const patterns = [
+    /^(\d{1,2})[-_]/,
+    /^[A-Za-z]+[-_](\d{1,2})[-_]/,
+    /^[A-Za-z]+0*(\d{1,2})/,
+    /^0*(\d{1,2})$/,
+  ]
+  for (const p of patterns) {
+    const m = qno.match(p)
+    if (m) {
+      const n = parseInt(m[1])
+      if (n >= 1 && n <= 21) return n
+    }
+  }
+  return null
+}
+
 export default function QuestionListPage() {
   const router = useRouter()
   const params = useParams()
@@ -27,12 +44,16 @@ export default function QuestionListPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [prevRatings, setPrevRatings] = useState<Map<string, string>>(new Map())
 
+  // フィルター
+  const [selectedChapter, setSelectedChapter] = useState<number | null>(null)
+  const [filterUnanswered, setFilterUnanswered] = useState(false)
+  const [filterPrevBatsu, setFilterPrevBatsu] = useState(false)
+
   const today = new Date().toISOString().split('T')[0]
 
   const loadData = useCallback(async (inviteCode: string) => {
     setLoading(true)
 
-    // Fetch questions for this subject and type
     const { data: allQuestions } = await supabase
       .from('questions')
       .select('*')
@@ -40,12 +61,8 @@ export default function QuestionListPage() {
       .eq('type', type)
       .order('sort_order')
 
-    if (!allQuestions) {
-      setLoading(false)
-      return
-    }
+    if (!allQuestions) { setLoading(false); return }
 
-    // Fetch existing results for this round/type
     const { data: currentResults } = await supabase
       .from('results')
       .select('*')
@@ -54,8 +71,9 @@ export default function QuestionListPage() {
       .eq('type', type)
       .eq('round', round)
 
-    // For round 2+, get previous round results to filter
     let filteredQuestions = allQuestions
+    const newPrevRatings = new Map<string, string>()
+
     if (round > 1) {
       const { data: prevResults } = await supabase
         .from('results')
@@ -66,22 +84,19 @@ export default function QuestionListPage() {
         .eq('round', round - 1)
 
       if (prevResults) {
-        const ratingMap = new Map<string, string>()
         const retryNos = new Set<string>()
         for (const r of prevResults) {
-          ratingMap.set(r.question_no, r.rating)
+          newPrevRatings.set(r.question_no, r.rating)
           if (r.rating === '△' || r.rating === '×') retryNos.add(r.question_no)
         }
-        setPrevRatings(ratingMap)
         filteredQuestions = allQuestions.filter(q => retryNos.has(q.question_no))
       }
     }
+    setPrevRatings(newPrevRatings)
 
     const resultMap = new Map<string, Result>()
     if (currentResults) {
-      for (const r of currentResults) {
-        resultMap.set(r.question_no, r)
-      }
+      for (const r of currentResults) resultMap.set(r.question_no, r)
     }
 
     setQuestions(filteredQuestions.map(q => ({
@@ -97,10 +112,7 @@ export default function QuestionListPage() {
 
   useEffect(() => {
     const saved = localStorage.getItem('eipass_code')
-    if (!saved) {
-      router.replace('/')
-      return
-    }
+    if (!saved) { router.replace('/'); return }
     setCode(saved)
     loadData(saved)
   }, [router, loadData])
@@ -111,31 +123,35 @@ export default function QuestionListPage() {
 
   async function saveQuestion(q: QuestionWithResult) {
     if (!q.pendingRating || !code) return
-
     updateQuestion(q.id, { saving: true, saved: false })
-
     const payload = {
-      code,
-      subject,
-      type,
-      question_no: q.question_no,
-      title: q.title,
-      round,
-      rating: q.pendingRating,
-      memo: q.pendingMemo || '',
+      code, subject, type,
+      question_no: q.question_no, title: q.title, round,
+      rating: q.pendingRating, memo: q.pendingMemo || '',
       answered_at: q.pendingDate || today,
     }
-
     if (q.result) {
       await supabase.from('results').update(payload).eq('id', q.result.id)
     } else {
       await supabase.from('results').insert(payload)
     }
-
     updateQuestion(q.id, { saving: false, saved: true })
     setTimeout(() => updateQuestion(q.id, { saved: false }), 2000)
     loadData(code)
   }
+
+  // 利用可能なChapter一覧
+  const chapters = Array.from(
+    new Set(questions.map(q => extractChapter(q.question_no)).filter((c): c is number => c !== null))
+  ).sort((a, b) => a - b)
+
+  // 表示する問題（フィルター適用）
+  const visibleQuestions = questions.filter(q => {
+    if (selectedChapter !== null && extractChapter(q.question_no) !== selectedChapter) return false
+    if (filterUnanswered && q.result) return false
+    if (filterPrevBatsu && prevRatings.get(q.question_no) !== '×') return false
+    return true
+  })
 
   const savedCount = questions.filter(q => q.result).length
 
@@ -144,8 +160,8 @@ export default function QuestionListPage() {
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3">
-        <div className="max-w-2xl mx-auto flex items-center gap-3">
+      <div className="sticky top-0 z-10 bg-white border-b border-slate-200">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
           <Link href={`/subject/${subject}/${type}`} className="p-1 text-slate-500">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -156,6 +172,68 @@ export default function QuestionListPage() {
             <p className="text-xs text-slate-500">{savedCount}/{questions.length} 保存済み</p>
           </div>
         </div>
+
+        {/* Chapter filter */}
+        {!loading && chapters.length > 0 && (
+          <div className="overflow-x-auto scrollbar-hide border-t border-slate-100">
+            <div className="flex gap-2 px-4 py-2 w-max">
+              <button
+                onClick={() => setSelectedChapter(null)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                  selectedChapter === null
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                全て
+              </button>
+              {chapters.map(ch => (
+                <button
+                  key={ch}
+                  onClick={() => setSelectedChapter(selectedChapter === ch ? null : ch)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                    selectedChapter === ch
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  Ch{ch}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Filter toggles */}
+        {!loading && (
+          <div className="flex gap-2 px-4 py-2 border-t border-slate-100">
+            <button
+              onClick={() => setFilterUnanswered(v => !v)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                filterUnanswered
+                  ? 'bg-slate-700 text-white'
+                  : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              未回答のみ
+            </button>
+            {round > 1 && (
+              <button
+                onClick={() => setFilterPrevBatsu(v => !v)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                  filterPrevBatsu
+                    ? 'bg-red-500 text-white'
+                    : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                前回×のみ
+              </button>
+            )}
+            <span className="ml-auto text-xs text-slate-400 self-center">
+              {visibleQuestions.length}問表示
+            </span>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -169,11 +247,22 @@ export default function QuestionListPage() {
             <p className="text-slate-400 text-sm mt-2">{round - 1}周目に△・×の問題がありません</p>
           )}
         </div>
+      ) : visibleQuestions.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+          <p className="text-slate-500">条件に一致する問題がありません</p>
+          <button
+            onClick={() => { setSelectedChapter(null); setFilterUnanswered(false); setFilterPrevBatsu(false) }}
+            className="mt-3 text-blue-500 text-sm"
+          >
+            フィルターをリセット
+          </button>
+        </div>
       ) : (
         <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
-          {questions.map(q => {
+          {visibleQuestions.map(q => {
             const isExpanded = expandedId === q.id
             const currentRating = q.result?.rating || q.pendingRating
+            const isUnanswered = !q.result
             const ratingColor = currentRating === '○'
               ? 'border-green-400 bg-green-50'
               : currentRating === '△'
@@ -184,7 +273,6 @@ export default function QuestionListPage() {
 
             return (
               <div key={q.id} className={`rounded-2xl border-2 shadow-sm transition-colors ${ratingColor}`}>
-                {/* Question header */}
                 <button
                   onClick={() => setExpandedId(isExpanded ? null : q.id)}
                   className="w-full p-4 text-left"
@@ -193,6 +281,11 @@ export default function QuestionListPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-xs font-medium text-slate-500">No.{q.question_no}</span>
+                        {isUnanswered && (
+                          <span className="text-xs px-1.5 py-0.5 rounded-full font-medium leading-none bg-slate-100 text-slate-500">
+                            未回答
+                          </span>
+                        )}
                         {round > 1 && (() => {
                           const prev = prevRatings.get(q.question_no)
                           if (!prev) return null
@@ -226,10 +319,8 @@ export default function QuestionListPage() {
                   </div>
                 </button>
 
-                {/* Expanded content */}
                 {isExpanded && (
                   <div className="px-4 pb-4 border-t border-slate-200 pt-4 space-y-4">
-                    {/* Rating buttons */}
                     <div>
                       <p className="text-sm font-medium text-slate-600 mb-2">評価</p>
                       <div className="flex gap-3">
@@ -253,7 +344,6 @@ export default function QuestionListPage() {
                       </div>
                     </div>
 
-                    {/* Date */}
                     <div>
                       <p className="text-sm font-medium text-slate-600 mb-2">日付</p>
                       <input
@@ -264,7 +354,6 @@ export default function QuestionListPage() {
                       />
                     </div>
 
-                    {/* Memo */}
                     <div>
                       <p className="text-sm font-medium text-slate-600 mb-2">メモ</p>
                       <textarea
@@ -276,7 +365,6 @@ export default function QuestionListPage() {
                       />
                     </div>
 
-                    {/* Save button */}
                     <button
                       onClick={() => saveQuestion(q)}
                       disabled={!q.pendingRating || q.saving}

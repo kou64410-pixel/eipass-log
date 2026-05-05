@@ -25,6 +25,8 @@ function extractChapter(qno: string): number | null {
   return null
 }
 
+type RoundStat = { sankaku: number; batsu: number; hasData: boolean }
+
 type TypeData = {
   r1Count: number
   maru: number
@@ -32,6 +34,7 @@ type TypeData = {
   batsu: number
   chapterDist: { ch: number; sankaku: number; batsu: number }[]
   dailyCounts: { date: string; dayLabel: string; count: number }[]
+  roundTrend: RoundStat[]  // index 0=1周目, 1=2周目, 2=3周目
 }
 
 type DashData = Record<string, TypeData>
@@ -56,15 +59,15 @@ export default function DashboardPage() {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
     const fromDate = sevenDaysAgo.toISOString().split('T')[0]
 
-    const [{ data: r1Results }, { data: recentResults }] = await Promise.all([
-      supabase.from('results').select('question_no, rating, type').eq('code', inviteCode).eq('round', 1),
+    const [{ data: allResults }, { data: recentResults }] = await Promise.all([
+      supabase.from('results').select('question_no, rating, type, round').eq('code', inviteCode),
       supabase.from('results').select('answered_at, type').eq('code', inviteCode).gte('answered_at', fromDate).lte('answered_at', today),
     ])
 
     const result: DashData = {}
 
     for (const type of ['MC', 'TBS']) {
-      // Build daily counts
+      // Daily counts (last 7 days)
       const dailyCounts: TypeData['dailyCounts'] = []
       for (let i = 6; i >= 0; i--) {
         const d = new Date()
@@ -79,10 +82,11 @@ export default function DashboardPage() {
         }
       }
 
+      // Round 1 stats + chapter dist
+      const r1 = (allResults || []).filter(r => (r.type || 'MC') === type && r.round === 1)
       let maru = 0, sankaku = 0, batsu = 0
       const chMap: Record<number, { sankaku: number; batsu: number }> = {}
-      const filtered = (r1Results || []).filter(r => (r.type || 'MC') === type)
-      for (const r of filtered) {
+      for (const r of r1) {
         if (r.rating === '○') maru++
         else if (r.rating === '△') sankaku++
         else if (r.rating === '×') batsu++
@@ -93,14 +97,24 @@ export default function DashboardPage() {
           if (r.rating === '×') chMap[ch].batsu++
         }
       }
-
       const chapterDist = Array.from({ length: 21 }, (_, i) => ({
         ch: i + 1,
         sankaku: chMap[i + 1]?.sankaku ?? 0,
         batsu: chMap[i + 1]?.batsu ?? 0,
       }))
 
-      result[type] = { r1Count: filtered.length, maru, sankaku, batsu, chapterDist, dailyCounts }
+      // Round trend (△× per round)
+      const roundTrend: RoundStat[] = [1, 2, 3].map(rnd => {
+        const rows = (allResults || []).filter(r => (r.type || 'MC') === type && r.round === rnd)
+        if (rows.length === 0) return { sankaku: 0, batsu: 0, hasData: false }
+        return {
+          sankaku: rows.filter(r => r.rating === '△').length,
+          batsu: rows.filter(r => r.rating === '×').length,
+          hasData: true,
+        }
+      })
+
+      result[type] = { r1Count: r1.length, maru, sankaku, batsu, chapterDist, dailyCounts, roundTrend }
     }
 
     setData(result)
@@ -114,6 +128,7 @@ export default function DashboardPage() {
   const completionPct = d ? Math.min(Math.round((d.r1Count / totalQ) * 100), 100) : 0
   const maxChBar = d ? Math.max(...d.chapterDist.map(c => c.sankaku + c.batsu), 1) : 1
   const maxDay = d ? Math.max(...d.dailyCounts.map(x => x.count), 1) : 1
+  const maxRoundBar = d ? Math.max(...d.roundTrend.map(r => r.sankaku + r.batsu), 1) : 1
 
   return (
     <div className="min-h-screen bg-slate-50 pb-8">
@@ -136,9 +151,7 @@ export default function DashboardPage() {
               key={type}
               onClick={() => setActiveType(type)}
               className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-colors ${
-                activeType === type
-                  ? 'bg-blue-500 text-white shadow-sm'
-                  : 'text-slate-500'
+                activeType === type ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-500'
               }`}
             >
               {type}
@@ -160,15 +173,10 @@ export default function DashboardPage() {
             <p className="text-sm text-slate-500 mb-3">
               {totalQ}問中{' '}
               <span className="text-slate-800 font-bold text-base">{d.r1Count}問</span>
-              {' '}完了（
-              <span className="text-blue-600 font-bold">{completionPct}%</span>
-              ）
+              {' '}完了（<span className="text-blue-600 font-bold">{completionPct}%</span>）
             </p>
             <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-500 rounded-full transition-all"
-                style={{ width: `${completionPct}%` }}
-              />
+              <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${completionPct}%` }} />
             </div>
           </div>
 
@@ -194,6 +202,63 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* 周回別 △×推移 */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <h2 className="text-base font-semibold text-slate-700 mb-4">周回別 △×推移</h2>
+            <div className="flex gap-4">
+              {d.roundTrend.map((stat, i) => {
+                const label = `${i + 1}周目`
+                const sankakuH = stat.hasData ? Math.max((stat.sankaku / maxRoundBar) * 80, stat.sankaku > 0 ? 4 : 0) : 0
+                const batsuH = stat.hasData ? Math.max((stat.batsu / maxRoundBar) * 80, stat.batsu > 0 ? 4 : 0) : 0
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center">
+                    {stat.hasData ? (
+                      <>
+                        {/* Count labels */}
+                        <div className="flex gap-1 mb-1">
+                          {stat.sankaku > 0 && <span className="text-xs text-yellow-500 font-semibold">{stat.sankaku}</span>}
+                          {stat.sankaku > 0 && stat.batsu > 0 && <span className="text-xs text-slate-300">/</span>}
+                          {stat.batsu > 0 && <span className="text-xs text-red-500 font-semibold">{stat.batsu}</span>}
+                          {stat.sankaku === 0 && stat.batsu === 0 && <span className="text-xs text-green-500 font-semibold">全○</span>}
+                        </div>
+                        {/* Bars */}
+                        <div className="flex gap-1 items-end" style={{ height: '80px' }}>
+                          <div className="w-8 flex items-end justify-center" style={{ height: '80px' }}>
+                            {sankakuH > 0 ? (
+                              <div className="w-full bg-yellow-400 rounded-t-sm" style={{ height: `${sankakuH}px` }} />
+                            ) : (
+                              <div className="w-full h-1 bg-slate-100 rounded-sm" />
+                            )}
+                          </div>
+                          <div className="w-8 flex items-end justify-center" style={{ height: '80px' }}>
+                            {batsuH > 0 ? (
+                              <div className="w-full bg-red-400 rounded-t-sm" style={{ height: `${batsuH}px` }} />
+                            ) : (
+                              <div className="w-full h-1 bg-slate-100 rounded-sm" />
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-end" style={{ height: '100px' }}>
+                        <span className="text-xs text-slate-300 font-medium">未実施</span>
+                      </div>
+                    )}
+                    <p className="text-xs text-slate-500 mt-2 font-medium">{label}</p>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="flex gap-4 mt-4 pt-3 border-t border-slate-100">
+              <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                <span className="w-3 h-3 rounded-sm bg-yellow-400 inline-block" />△ 要復習
+              </span>
+              <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                <span className="w-3 h-3 rounded-sm bg-red-400 inline-block" />× 未理解
+              </span>
+            </div>
+          </div>
+
           {/* Chapter別理解度分布 */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
             <h2 className="text-base font-semibold text-slate-700 mb-4">Chapter別 理解度分布（1周目）</h2>
@@ -206,12 +271,8 @@ export default function DashboardPage() {
                   <div key={ch} className="flex items-center gap-2">
                     <span className="text-xs text-slate-400 w-8 shrink-0 text-right font-mono">{ch}</span>
                     <div className="flex-1 flex gap-0.5 h-4 bg-slate-50 rounded-sm overflow-hidden">
-                      {sankaku > 0 && (
-                        <div className="h-full bg-yellow-400 rounded-sm" style={{ width: `${sankakuW}%` }} title={`△ ${sankaku}`} />
-                      )}
-                      {b > 0 && (
-                        <div className="h-full bg-red-400 rounded-sm" style={{ width: `${batsuW}%` }} title={`× ${b}`} />
-                      )}
+                      {sankaku > 0 && <div className="h-full bg-yellow-400 rounded-sm" style={{ width: `${sankakuW}%` }} />}
+                      {b > 0 && <div className="h-full bg-red-400 rounded-sm" style={{ width: `${batsuW}%` }} />}
                     </div>
                     <span className="text-xs text-slate-400 w-5 shrink-0 text-right">{total > 0 ? total : ''}</span>
                   </div>
@@ -238,11 +299,10 @@ export default function DashboardPage() {
                   <div key={date} className="flex-1 flex flex-col items-center gap-1">
                     {count > 0 && <span className="text-xs text-slate-500 leading-none">{count}</span>}
                     <div className="w-full flex items-end justify-center" style={{ height: '72px' }}>
-                      {barH > 0 ? (
-                        <div className="w-full bg-blue-400 rounded-t-sm" style={{ height: `${barH}px` }} />
-                      ) : (
-                        <div className="w-full" />
-                      )}
+                      {barH > 0
+                        ? <div className="w-full bg-blue-400 rounded-t-sm" style={{ height: `${barH}px` }} />
+                        : <div className="w-full" />
+                      }
                     </div>
                     <span className="text-xs text-slate-500 leading-none">{dayLabel}</span>
                   </div>
