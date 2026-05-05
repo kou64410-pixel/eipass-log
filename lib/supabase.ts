@@ -16,6 +16,7 @@ export interface InviteCode {
 export interface Question {
   id: string
   subject: string
+  type: string
   question_no: string
   title: string
   sort_order: number
@@ -25,6 +26,7 @@ export interface Result {
   id: string
   code: string
   subject: string
+  type: string
   question_no: string
   title: string
   round: number

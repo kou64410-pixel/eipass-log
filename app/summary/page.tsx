@@ -6,9 +6,12 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 const SUBJECTS = ['FAR', 'BAR', 'REG', 'AUD']
+const TYPES = ['MC', 'TBS']
 const ROUNDS = [1, 2, 3]
 
-type SummaryData = Record<string, Record<number, { maru: number; sankaku: number; batsu: number; total: number }>>
+type Counts = { maru: number; sankaku: number; batsu: number; total: number }
+// subject -> type -> round -> counts
+type SummaryData = Record<string, Record<string, Record<number, Counts>>>
 
 export default function SummaryPage() {
   const router = useRouter()
@@ -29,7 +32,7 @@ export default function SummaryPage() {
   async function fetchSummary(inviteCode: string) {
     const { data } = await supabase
       .from('results')
-      .select('subject, round, rating')
+      .select('subject, type, round, rating')
       .eq('code', inviteCode)
 
     if (!data) {
@@ -39,14 +42,16 @@ export default function SummaryPage() {
 
     const result: SummaryData = {}
     for (const row of data) {
+      const t = row.type || 'MC'
       if (!result[row.subject]) result[row.subject] = {}
-      if (!result[row.subject][row.round]) {
-        result[row.subject][row.round] = { maru: 0, sankaku: 0, batsu: 0, total: 0 }
+      if (!result[row.subject][t]) result[row.subject][t] = {}
+      if (!result[row.subject][t][row.round]) {
+        result[row.subject][t][row.round] = { maru: 0, sankaku: 0, batsu: 0, total: 0 }
       }
-      result[row.subject][row.round].total++
-      if (row.rating === '○') result[row.subject][row.round].maru++
-      if (row.rating === '△') result[row.subject][row.round].sankaku++
-      if (row.rating === '×') result[row.subject][row.round].batsu++
+      result[row.subject][t][row.round].total++
+      if (row.rating === '○') result[row.subject][t][row.round].maru++
+      if (row.rating === '△') result[row.subject][t][row.round].sankaku++
+      if (row.rating === '×') result[row.subject][t][row.round].batsu++
     }
 
     setSummary(result)
@@ -88,44 +93,61 @@ export default function SummaryPage() {
                 {!hasData ? (
                   <div className="px-5 py-4 text-slate-400 text-sm">記録なし</div>
                 ) : (
-                  <div className="divide-y divide-slate-100">
-                    {ROUNDS.map(round => {
-                      const data = subjectData?.[round]
-                      if (!data) return null
-
-                      const pct = data.total > 0 ? Math.round((data.maru / data.total) * 100) : 0
+                  <div>
+                    {TYPES.map(type => {
+                      const typeData = subjectData?.[type]
+                      if (!typeData || Object.keys(typeData).length === 0) return null
 
                       return (
-                        <div key={round} className="px-5 py-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-semibold text-slate-700">{round}周目</span>
-                            <span className="text-sm text-slate-500">{data.total}問</span>
+                        <div key={type}>
+                          {/* Type label */}
+                          <div className="px-5 py-2 bg-slate-50 border-y border-slate-100">
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                              type === 'MC' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                            }`}>{type}</span>
                           </div>
 
-                          {/* Progress bar */}
-                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
-                            <div
-                              className="h-full bg-green-400 rounded-full transition-all"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
+                          <div className="divide-y divide-slate-100">
+                            {ROUNDS.map(round => {
+                              const data = typeData?.[round]
+                              if (!data) return null
 
-                          <div className="flex gap-4">
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-6 h-6 flex items-center justify-center rounded-full bg-green-100 text-green-700 font-bold text-sm">○</span>
-                              <span className="text-slate-700 font-semibold">{data.maru}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-6 h-6 flex items-center justify-center rounded-full bg-yellow-100 text-yellow-600 font-bold text-sm">△</span>
-                              <span className="text-slate-700 font-semibold">{data.sankaku}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-6 h-6 flex items-center justify-center rounded-full bg-red-100 text-red-600 font-bold text-sm">×</span>
-                              <span className="text-slate-700 font-semibold">{data.batsu}</span>
-                            </div>
-                            <div className="ml-auto text-slate-500 text-sm font-medium">
-                              正答率 {pct}%
-                            </div>
+                              const pct = data.total > 0 ? Math.round((data.maru / data.total) * 100) : 0
+
+                              return (
+                                <div key={round} className="px-5 py-4">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="font-semibold text-slate-700">{round}周目</span>
+                                    <span className="text-sm text-slate-500">{data.total}問</span>
+                                  </div>
+
+                                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
+                                    <div
+                                      className="h-full bg-green-400 rounded-full transition-all"
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+
+                                  <div className="flex gap-4">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-green-100 text-green-700 font-bold text-sm">○</span>
+                                      <span className="text-slate-700 font-semibold">{data.maru}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-yellow-100 text-yellow-600 font-bold text-sm">△</span>
+                                      <span className="text-slate-700 font-semibold">{data.sankaku}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-red-100 text-red-600 font-bold text-sm">×</span>
+                                      <span className="text-slate-700 font-semibold">{data.batsu}</span>
+                                    </div>
+                                    <div className="ml-auto text-slate-500 text-sm font-medium">
+                                      正答率 {pct}%
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
                           </div>
                         </div>
                       )

@@ -18,6 +18,7 @@ export default function QuestionListPage() {
   const router = useRouter()
   const params = useParams()
   const subject = params.subject as string
+  const type = params.type as string
   const round = Number(params.round)
 
   const [code, setCode] = useState<string | null>(null)
@@ -31,11 +32,12 @@ export default function QuestionListPage() {
   const loadData = useCallback(async (inviteCode: string) => {
     setLoading(true)
 
-    // Fetch questions
+    // Fetch questions for this subject and type
     const { data: allQuestions } = await supabase
       .from('questions')
       .select('*')
       .eq('subject', subject)
+      .eq('type', type)
       .order('sort_order')
 
     if (!allQuestions) {
@@ -43,12 +45,13 @@ export default function QuestionListPage() {
       return
     }
 
-    // Fetch existing results for this round
+    // Fetch existing results for this round/type
     const { data: currentResults } = await supabase
       .from('results')
       .select('*')
       .eq('code', inviteCode)
       .eq('subject', subject)
+      .eq('type', type)
       .eq('round', round)
 
     // For round 2+, get previous round results to filter
@@ -59,6 +62,7 @@ export default function QuestionListPage() {
         .select('question_no, rating')
         .eq('code', inviteCode)
         .eq('subject', subject)
+        .eq('type', type)
         .eq('round', round - 1)
 
       if (prevResults) {
@@ -89,7 +93,7 @@ export default function QuestionListPage() {
     })))
 
     setLoading(false)
-  }, [subject, round, today])
+  }, [subject, type, round, today])
 
   useEffect(() => {
     const saved = localStorage.getItem('eipass_code')
@@ -113,6 +117,7 @@ export default function QuestionListPage() {
     const payload = {
       code,
       subject,
+      type,
       question_no: q.question_no,
       title: q.title,
       round,
@@ -122,25 +127,16 @@ export default function QuestionListPage() {
     }
 
     if (q.result) {
-      // Update
-      await supabase
-        .from('results')
-        .update(payload)
-        .eq('id', q.result.id)
+      await supabase.from('results').update(payload).eq('id', q.result.id)
     } else {
-      // Insert
-      await supabase
-        .from('results')
-        .insert(payload)
+      await supabase.from('results').insert(payload)
     }
 
-    updateQuestion(q.id, { saving: false, saved: true, result: { ...payload, id: q.result?.id || '', created_at: '' } as Result })
+    updateQuestion(q.id, { saving: false, saved: true })
     setTimeout(() => updateQuestion(q.id, { saved: false }), 2000)
-    // Reload to get fresh data
     loadData(code)
   }
 
-  const answeredCount = questions.filter(q => q.result || q.pendingRating).length
   const savedCount = questions.filter(q => q.result).length
 
   if (!code) return null
@@ -149,17 +145,15 @@ export default function QuestionListPage() {
     <div className="min-h-screen bg-slate-50 pb-24">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href={`/subject/${subject}`} className="p-1 text-slate-500">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </Link>
-            <div>
-              <h1 className="font-bold text-slate-800">{subject} — {round}周目</h1>
-              <p className="text-xs text-slate-500">{savedCount}/{questions.length} 保存済み</p>
-            </div>
+        <div className="max-w-2xl mx-auto flex items-center gap-3">
+          <Link href={`/subject/${subject}/${type}`} className="p-1 text-slate-500">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </Link>
+          <div>
+            <h1 className="font-bold text-slate-800">{subject} {type} — {round}周目</h1>
+            <p className="text-xs text-slate-500">{savedCount}/{questions.length} 保存済み</p>
           </div>
         </div>
       </div>
@@ -179,19 +173,17 @@ export default function QuestionListPage() {
         <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
           {questions.map(q => {
             const isExpanded = expandedId === q.id
-            const ratingColor = q.result?.rating === '○' || q.pendingRating === '○'
+            const currentRating = q.result?.rating || q.pendingRating
+            const ratingColor = currentRating === '○'
               ? 'border-green-400 bg-green-50'
-              : q.result?.rating === '△' || q.pendingRating === '△'
+              : currentRating === '△'
               ? 'border-yellow-400 bg-yellow-50'
-              : q.result?.rating === '×' || q.pendingRating === '×'
+              : currentRating === '×'
               ? 'border-red-400 bg-red-50'
               : 'border-slate-200 bg-white'
 
             return (
-              <div
-                key={q.id}
-                className={`rounded-2xl border-2 shadow-sm transition-colors ${ratingColor}`}
-              >
+              <div key={q.id} className={`rounded-2xl border-2 shadow-sm transition-colors ${ratingColor}`}>
                 {/* Question header */}
                 <button
                   onClick={() => setExpandedId(isExpanded ? null : q.id)}
@@ -206,9 +198,7 @@ export default function QuestionListPage() {
                           if (!prev) return null
                           return (
                             <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium leading-none ${
-                              prev === '×'
-                                ? 'bg-red-100 text-red-600'
-                                : 'bg-yellow-100 text-yellow-600'
+                              prev === '×' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-600'
                             }`}>
                               前回{prev}
                             </span>
@@ -218,13 +208,12 @@ export default function QuestionListPage() {
                       <p className="text-slate-800 font-medium mt-0.5 leading-snug">{q.title}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {(q.result?.rating || q.pendingRating) && (
+                      {currentRating && (
                         <span className={`text-lg font-bold ${
-                          (q.result?.rating || q.pendingRating) === '○' ? 'text-green-600' :
-                          (q.result?.rating || q.pendingRating) === '△' ? 'text-yellow-500' :
-                          'text-red-500'
+                          currentRating === '○' ? 'text-green-600' :
+                          currentRating === '△' ? 'text-yellow-500' : 'text-red-500'
                         }`}>
-                          {q.result?.rating || q.pendingRating}
+                          {currentRating}
                         </span>
                       )}
                       <svg
