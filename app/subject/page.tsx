@@ -34,25 +34,31 @@ export default function SubjectPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="max-w-sm mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">科目選択</h1>
             <p className="text-sm text-slate-500 mt-1">コード: {code}</p>
           </div>
-          <div className="flex gap-2">
-            <Link
-              href="/summary"
-              className="px-3 py-2 text-sm bg-slate-200 text-slate-700 rounded-lg font-medium"
-            >
-              進捗
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="px-3 py-2 text-sm bg-slate-200 text-slate-700 rounded-lg font-medium"
-            >
-              ログアウト
-            </button>
-          </div>
+          <button
+            onClick={handleLogout}
+            className="px-3 py-2 text-sm bg-slate-200 text-slate-700 rounded-lg font-medium"
+          >
+            ログアウト
+          </button>
+        </div>
+        <div className="flex gap-2 mb-6">
+          <Link
+            href="/dashboard"
+            className="flex-1 py-2.5 text-sm bg-blue-50 text-blue-700 rounded-xl font-medium text-center border border-blue-200"
+          >
+            ダッシュボード
+          </Link>
+          <Link
+            href="/summary"
+            className="px-4 py-2.5 text-sm bg-slate-200 text-slate-700 rounded-xl font-medium text-center"
+          >
+            進捗
+          </Link>
         </div>
 
         <div className="space-y-3">

@@ -24,6 +24,7 @@ export default function QuestionListPage() {
   const [questions, setQuestions] = useState<QuestionWithResult[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [prevRatings, setPrevRatings] = useState<Map<string, string>>(new Map())
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -61,11 +62,13 @@ export default function QuestionListPage() {
         .eq('round', round - 1)
 
       if (prevResults) {
-        const retryNos = new Set(
-          prevResults
-            .filter(r => r.rating === '△' || r.rating === '×')
-            .map(r => r.question_no)
-        )
+        const ratingMap = new Map<string, string>()
+        const retryNos = new Set<string>()
+        for (const r of prevResults) {
+          ratingMap.set(r.question_no, r.rating)
+          if (r.rating === '△' || r.rating === '×') retryNos.add(r.question_no)
+        }
+        setPrevRatings(ratingMap)
         filteredQuestions = allQuestions.filter(q => retryNos.has(q.question_no))
       }
     }
@@ -196,7 +199,22 @@ export default function QuestionListPage() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs font-medium text-slate-500">No.{q.question_no}</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-medium text-slate-500">No.{q.question_no}</span>
+                        {round > 1 && (() => {
+                          const prev = prevRatings.get(q.question_no)
+                          if (!prev) return null
+                          return (
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium leading-none ${
+                              prev === '×'
+                                ? 'bg-red-100 text-red-600'
+                                : 'bg-yellow-100 text-yellow-600'
+                            }`}>
+                              前回{prev}
+                            </span>
+                          )
+                        })()}
+                      </div>
                       <p className="text-slate-800 font-medium mt-0.5 leading-snug">{q.title}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
