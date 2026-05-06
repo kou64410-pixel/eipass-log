@@ -16,6 +16,15 @@ type QuestionWithResult = Question & {
   saved?: boolean
 }
 
+const RQ_YEARS = ['2019(Additional)', '2019', '2020', '2021', '2022', '2023', '2024', '2025']
+
+function extractYear(qno: string): string | null {
+  for (const year of RQ_YEARS) {
+    if (qno.startsWith(year)) return year
+  }
+  return null
+}
+
 function extractChapter(qno: string): number | null {
   const patterns = [
     /^(\d{1,2})[-_]/,
@@ -91,9 +100,12 @@ export default function QuestionListPage() {
 
   // フィルター
   const [selectedChapter, setSelectedChapter] = useState<number | null>(null)
+  const [selectedYear, setSelectedYear] = useState<string | null>(null)
   const [filterUnanswered, setFilterUnanswered] = useState(false)
   const [filterPrevBatsu, setFilterPrevBatsu] = useState(false)
   const [filterBookmark, setFilterBookmark] = useState(false)
+
+  const isRQ = type.startsWith('RQ-')
 
   // ブックマーク
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set())
@@ -253,14 +265,23 @@ export default function QuestionListPage() {
     loadData(code)
   }
 
-  // 利用可能なChapter一覧
+  // 利用可能なChapter一覧（非RQ）
   const chapters = Array.from(
     new Set(questions.map(q => extractChapter(q.question_no)).filter((c): c is number => c !== null))
   ).sort((a, b) => a - b)
 
+  // 利用可能な年度一覧（RQ）
+  const availableYears = RQ_YEARS.filter(y =>
+    questions.some(q => extractYear(q.question_no) === y)
+  )
+
   // 表示する問題（フィルター適用）
   const visibleQuestions = questions.filter(q => {
-    if (selectedChapter !== null && extractChapter(q.question_no) !== selectedChapter) return false
+    if (isRQ) {
+      if (selectedYear !== null && extractYear(q.question_no) !== selectedYear) return false
+    } else {
+      if (selectedChapter !== null && extractChapter(q.question_no) !== selectedChapter) return false
+    }
     if (filterUnanswered && q.result) return false
     if (filterPrevBatsu && prevRatings.get(q.question_no) !== '×') return false
     if (filterBookmark && !bookmarks.has(q.question_no)) return false
@@ -295,29 +316,55 @@ export default function QuestionListPage() {
           </div>
         </div>
 
-        {/* Chapter filter */}
-        {!loading && chapters.length > 0 && (
+        {/* Chapter filter（非RQ） / Year filter（RQ） */}
+        {!loading && (isRQ ? availableYears.length > 0 : chapters.length > 0) && (
           <div className="overflow-x-auto scrollbar-hide border-t border-slate-100">
             <div className="flex gap-2 px-4 py-2 w-max">
-              <button
-                onClick={() => setSelectedChapter(null)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-                  selectedChapter === null ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600'
-                }`}
-              >
-                全て
-              </button>
-              {chapters.map(ch => (
-                <button
-                  key={ch}
-                  onClick={() => setSelectedChapter(selectedChapter === ch ? null : ch)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-                    selectedChapter === ch ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600'
-                  }`}
-                >
-                  Ch{ch}
-                </button>
-              ))}
+              {isRQ ? (
+                <>
+                  <button
+                    onClick={() => setSelectedYear(null)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                      selectedYear === null ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    全て
+                  </button>
+                  {availableYears.map(year => (
+                    <button
+                      key={year}
+                      onClick={() => setSelectedYear(selectedYear === year ? null : year)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                        selectedYear === year ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {year}
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setSelectedChapter(null)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                      selectedChapter === null ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    全て
+                  </button>
+                  {chapters.map(ch => (
+                    <button
+                      key={ch}
+                      onClick={() => setSelectedChapter(selectedChapter === ch ? null : ch)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                        selectedChapter === ch ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      Ch{ch}
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
           </div>
         )}
@@ -369,7 +416,7 @@ export default function QuestionListPage() {
         <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
           <p className="text-slate-500">条件に一致する問題がありません</p>
           <button
-            onClick={() => { setSelectedChapter(null); setFilterUnanswered(false); setFilterPrevBatsu(false); setFilterBookmark(false) }}
+            onClick={() => { setSelectedChapter(null); setSelectedYear(null); setFilterUnanswered(false); setFilterPrevBatsu(false); setFilterBookmark(false) }}
             className="mt-3 text-blue-500 text-sm"
           >
             フィルターをリセット

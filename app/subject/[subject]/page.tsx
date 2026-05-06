@@ -6,8 +6,10 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 const TYPES = [
-  { id: 'MC', label: 'MC', desc: 'Multiple Choice（多肢選択式）' },
-  { id: 'TBS', label: 'TBS', desc: 'Task-Based Simulation（シミュレーション）' },
+  { id: 'MC',     label: 'MC（アビタス）',  desc: 'Multiple Choice 多肢選択式' },
+  { id: 'TBS',    label: 'TBS（アビタス）', desc: 'Task-Based Simulation シミュレーション' },
+  { id: 'RQ-MC',  label: 'MC（RQ）',        desc: 'Released Question 多肢選択式' },
+  { id: 'RQ-TBS', label: 'TBS（RQ）',       desc: 'Released Question シミュレーション' },
 ]
 
 export default function TypeSelectPage() {

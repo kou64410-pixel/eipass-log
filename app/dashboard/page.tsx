@@ -6,7 +6,15 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 const DAY_JP = ['日', '月', '火', '水', '木', '金', '土']
-const TOTAL_Q: Record<string, number> = { MC: 639, TBS: 116 }
+const TOTAL_Q: Record<string, number> = { MC: 639, TBS: 116, 'RQ-MC': 0, 'RQ-TBS': 0 }
+const ALL_TYPES = ['MC', 'TBS', 'RQ-MC', 'RQ-TBS'] as const
+type AppType = typeof ALL_TYPES[number]
+const TYPE_LABELS: Record<AppType, string> = {
+  'MC': 'MC（アビタス）',
+  'TBS': 'TBS（アビタス）',
+  'RQ-MC': 'MC（RQ）',
+  'RQ-TBS': 'TBS（RQ）',
+}
 
 function extractChapter(qno: string): number | null {
   const patterns = [
@@ -65,8 +73,8 @@ export default function DashboardPage() {
   const [code, setCode] = useState<string | null>(null)
   const [data, setData] = useState<DashData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeType, setActiveType] = useState<'MC' | 'TBS'>('MC')
-  const [goals, setGoals] = useState<Goals>({ MC: emptyGoal(), TBS: emptyGoal() })
+  const [activeType, setActiveType] = useState<AppType>('MC')
+  const [goals, setGoals] = useState<Goals>({ MC: emptyGoal(), TBS: emptyGoal(), 'RQ-MC': emptyGoal(), 'RQ-TBS': emptyGoal() })
   const [goalSaving, setGoalSaving] = useState(false)
   const [goalSaved, setGoalSaved] = useState(false)
 
@@ -88,7 +96,7 @@ export default function DashboardPage() {
       .eq('code', inviteCode)
 
     if (rows && rows.length > 0) {
-      const newGoals: Goals = { MC: emptyGoal(), TBS: emptyGoal() }
+      const newGoals: Goals = { MC: emptyGoal(), TBS: emptyGoal(), 'RQ-MC': emptyGoal(), 'RQ-TBS': emptyGoal() }
       for (const row of rows) {
         const t = row.type || 'MC'
         newGoals[t] = {
@@ -114,7 +122,7 @@ export default function DashboardPage() {
     ])
 
     const result: DashData = {}
-    for (const type of ['MC', 'TBS']) {
+    for (const type of ALL_TYPES) {
       const dailyCounts: TypeData['dailyCounts'] = []
       for (let i = 6; i >= 0; i--) {
         const d = new Date(); d.setDate(d.getDate() - i)
@@ -208,7 +216,8 @@ export default function DashboardPage() {
 
   const d = data?.[activeType]
   const totalQ = TOTAL_Q[activeType]
-  const completionPct = d ? Math.min(Math.round((d.r1Count / totalQ) * 100), 100) : 0
+  const hasKnownTotal = totalQ > 0
+  const completionPct = d && hasKnownTotal ? Math.min(Math.round((d.r1Count / totalQ) * 100), 100) : 0
   const maxChBar = d ? Math.max(...d.chapterDist.map(c => c.sankaku + c.batsu), 1) : 1
   const maxDay = d ? Math.max(...d.dailyCounts.map(x => x.count), 1) : 1
   const maxRoundBar = d ? Math.max(...d.roundTrend.map(r => r.sankaku + r.batsu), 1) : 1
@@ -248,16 +257,16 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* MC / TBS tabs */}
+      {/* 4タブ */}
       <div className="max-w-2xl mx-auto px-4 pt-4">
-        <div className="flex gap-2 bg-slate-100 p-1 rounded-xl">
-          {(['MC', 'TBS'] as const).map(type => (
+        <div className="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl">
+          {ALL_TYPES.map(type => (
             <button key={type} onClick={() => setActiveType(type)}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-colors ${
+              className={`py-2.5 rounded-lg text-xs font-bold transition-colors leading-tight ${
                 activeType === type ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-500'
               }`}
             >
-              {type}
+              {TYPE_LABELS[type]}
             </button>
           ))}
         </div>
@@ -458,14 +467,23 @@ export default function DashboardPage() {
           {/* 1周目完了率 */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
             <h2 className="text-base font-semibold text-slate-700 mb-3">1周目 完了率</h2>
-            <p className="text-sm text-slate-500 mb-3">
-              {totalQ}問中{' '}
-              <span className="text-slate-800 font-bold text-base">{d.r1Count}問</span>
-              {' '}完了（<span className="text-blue-600 font-bold">{completionPct}%</span>）
-            </p>
-            <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-              <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${completionPct}%` }} />
-            </div>
+            {hasKnownTotal ? (
+              <>
+                <p className="text-sm text-slate-500 mb-3">
+                  {totalQ}問中{' '}
+                  <span className="text-slate-800 font-bold text-base">{d.r1Count}問</span>
+                  {' '}完了（<span className="text-blue-600 font-bold">{completionPct}%</span>）
+                </p>
+                <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${completionPct}%` }} />
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-slate-500">
+                <span className="text-slate-800 font-bold text-base">{d.r1Count}問</span>
+                {' '}完了
+              </p>
+            )}
           </div>
 
           {/* 理解度の内訳 */}
