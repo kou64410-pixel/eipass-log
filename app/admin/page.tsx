@@ -30,11 +30,10 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
     })
 
     if (res.ok) {
-      sessionStorage.setItem('eipass_admin', '1')
+      localStorage.setItem('eipass_admin', '1')
       onLogin()
     } else {
-      const data = await res.json()
-      setError(data.error || 'ログインに失敗しました')
+      setError('パスワードが違います')
     }
     setLoading(false)
   }
@@ -309,13 +308,13 @@ export default function AdminPage() {
   const [authed, setAuthed] = useState<boolean | null>(null)
 
   useEffect(() => {
-    const ok = sessionStorage.getItem('eipass_admin') === '1'
+    const ok = localStorage.getItem('eipass_admin') === '1'
     setAuthed(ok)
   }, [])
 
   function handleLogin() { setAuthed(true) }
   function handleLogout() {
-    sessionStorage.removeItem('eipass_admin')
+    localStorage.removeItem('eipass_admin')
     setAuthed(false)
   }
 

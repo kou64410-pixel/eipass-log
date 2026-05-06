@@ -38,6 +38,15 @@ export interface Result {
   created_at: string
 }
 
+export interface Bookmark {
+  id: string
+  code: string
+  subject: string
+  type: string
+  question_no: string
+  created_at: string
+}
+
 export const REASON_OPTIONS = [
   '論点を知らなかった',
   '知っていたが適用を間違えた',

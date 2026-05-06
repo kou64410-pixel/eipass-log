@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, type Rating, type Question, type Result, REASON_OPTIONS } from '@/lib/supabase'
+import type { Bookmark } from '@/lib/supabase'
 
 type QuestionWithResult = Question & {
   result?: Result
@@ -92,6 +93,10 @@ export default function QuestionListPage() {
   const [selectedChapter, setSelectedChapter] = useState<number | null>(null)
   const [filterUnanswered, setFilterUnanswered] = useState(false)
   const [filterPrevBatsu, setFilterPrevBatsu] = useState(false)
+  const [filterBookmark, setFilterBookmark] = useState(false)
+
+  // ブックマーク
+  const [bookmarks, setBookmarks] = useState<Set<string>>(new Set())
 
   // ×理由ポップアップ
   const [reasonPopupId, setReasonPopupId] = useState<string | null>(null)
@@ -155,6 +160,17 @@ export default function QuestionListPage() {
       pendingDate: resultMap.get(q.question_no)?.answered_at || today,
     })))
 
+    const { data: bookmarkData } = await supabase
+      .from('bookmarks')
+      .select('question_no')
+      .eq('code', inviteCode)
+      .eq('subject', subject)
+      .eq('type', type)
+
+    if (bookmarkData) {
+      setBookmarks(new Set(bookmarkData.map((b: Pick<Bookmark, 'question_no'>) => b.question_no)))
+    }
+
     setLoading(false)
   }, [subject, type, round, today])
 
@@ -167,6 +183,30 @@ export default function QuestionListPage() {
 
   function updateQuestion(id: string, patch: Partial<QuestionWithResult>) {
     setQuestions(prev => prev.map(q => q.id === id ? { ...q, ...patch } : q))
+  }
+
+  async function toggleBookmark(questionNo: string) {
+    if (!code) return
+    const isBookmarked = bookmarks.has(questionNo)
+    if (isBookmarked) {
+      await supabase
+        .from('bookmarks')
+        .delete()
+        .eq('code', code)
+        .eq('subject', subject)
+        .eq('type', type)
+        .eq('question_no', questionNo)
+      setBookmarks(prev => {
+        const next = new Set(prev)
+        next.delete(questionNo)
+        return next
+      })
+    } else {
+      await supabase
+        .from('bookmarks')
+        .insert({ code, subject, type, question_no: questionNo })
+      setBookmarks(prev => new Set(prev).add(questionNo))
+    }
   }
 
   // ×を選択したときにポップアップを表示
@@ -223,6 +263,7 @@ export default function QuestionListPage() {
     if (selectedChapter !== null && extractChapter(q.question_no) !== selectedChapter) return false
     if (filterUnanswered && q.result) return false
     if (filterPrevBatsu && prevRatings.get(q.question_no) !== '×') return false
+    if (filterBookmark && !bookmarks.has(q.question_no)) return false
     return true
   })
 
@@ -283,10 +324,10 @@ export default function QuestionListPage() {
 
         {/* Filter toggles */}
         {!loading && (
-          <div className="flex gap-2 px-4 py-2 border-t border-slate-100">
+          <div className="flex gap-2 px-4 py-2 border-t border-slate-100 overflow-x-auto scrollbar-hide">
             <button
               onClick={() => setFilterUnanswered(v => !v)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
                 filterUnanswered ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'
               }`}
             >
@@ -295,14 +336,22 @@ export default function QuestionListPage() {
             {round > 1 && (
               <button
                 onClick={() => setFilterPrevBatsu(v => !v)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
                   filterPrevBatsu ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-600'
                 }`}
               >
                 前回×のみ
               </button>
             )}
-            <span className="ml-auto text-xs text-slate-400 self-center">{visibleQuestions.length}問表示</span>
+            <button
+              onClick={() => setFilterBookmark(v => !v)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                filterBookmark ? 'bg-yellow-400 text-white' : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              ★ブックマーク
+            </button>
+            <span className="ml-auto text-xs text-slate-400 self-center shrink-0">{visibleQuestions.length}問表示</span>
           </div>
         )}
       </div>
@@ -320,7 +369,7 @@ export default function QuestionListPage() {
         <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
           <p className="text-slate-500">条件に一致する問題がありません</p>
           <button
-            onClick={() => { setSelectedChapter(null); setFilterUnanswered(false); setFilterPrevBatsu(false) }}
+            onClick={() => { setSelectedChapter(null); setFilterUnanswered(false); setFilterPrevBatsu(false); setFilterBookmark(false) }}
             className="mt-3 text-blue-500 text-sm"
           >
             フィルターをリセット
@@ -351,6 +400,13 @@ export default function QuestionListPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-xs font-medium text-slate-500">No.{q.question_no}</span>
+                        <button
+                          onClick={e => { e.stopPropagation(); toggleBookmark(q.question_no) }}
+                          className="text-base leading-none"
+                          aria-label={bookmarks.has(q.question_no) ? 'ブックマーク解除' : 'ブックマーク登録'}
+                        >
+                          {bookmarks.has(q.question_no) ? '★' : '☆'}
+                        </button>
                         {isUnanswered && (
                           <span className="text-xs px-1.5 py-0.5 rounded-full font-medium leading-none bg-slate-100 text-slate-500">
                             未回答
