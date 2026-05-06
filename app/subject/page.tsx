@@ -59,6 +59,12 @@ export default function SubjectPage() {
           >
             進捗
           </Link>
+          <Link
+            href="/guide"
+            className="px-4 py-2.5 text-sm bg-slate-200 text-slate-700 rounded-xl font-medium text-center"
+          >
+            使い方
+          </Link>
         </div>
 
         <div className="space-y-3">
