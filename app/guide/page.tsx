@@ -30,6 +30,33 @@ function SubSection({ title, children }: { title: string; children: React.ReactN
   )
 }
 
+function AreaCard({ area, ratio, title, children, japaneseNote }: {
+  area: string
+  ratio: string
+  title: string
+  children: React.ReactNode
+  japaneseNote?: React.ReactNode
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
+        <span className="font-bold text-slate-800 text-sm">{area}</span>
+        <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full shrink-0">{ratio}</span>
+      </div>
+      <div className="px-4 py-4 space-y-3">
+        <p className="text-sm font-semibold text-slate-700">{title}</p>
+        <div className="text-sm text-slate-600 leading-relaxed space-y-2">{children}</div>
+        {japaneseNote && (
+          <div className="bg-amber-50 border-l-4 border-amber-400 rounded-r-xl px-4 py-3 text-sm text-amber-900 leading-relaxed">
+            <p className="font-semibold mb-1">日本人が特に注意すべき点</p>
+            {japaneseNote}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function GuidePage() {
   return (
     <div className="min-h-screen bg-slate-50 pb-12">
@@ -207,6 +234,133 @@ export default function GuidePage() {
                 気になる問題に☆をつけて後でまとめて確認できます。
               </p>
             </SubSection>
+
+          </div>
+        </Section>
+
+        <Divider />
+
+        {/* FAR Blueprint */}
+        <Section title="FARブループリント解説">
+          <div className="space-y-6">
+
+            {/* 試験の構成 */}
+            <SubSection title="試験の構成">
+              <p className="text-sm text-slate-600 leading-relaxed">
+                FARはMCQとTBSの2種類の問題で構成されています。スコアの配点はMCQ50%・TBS50%です。
+              </p>
+            </SubSection>
+
+            {/* 出題エリアと配点 */}
+            <SubSection title="出題エリアと配点">
+              <p className="text-sm text-slate-600 leading-relaxed mb-3">
+                3つのAreaがほぼ均等に出題されます。どれか1つを捨てる戦略は通用しません。
+              </p>
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-sm border-collapse min-w-[360px]">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600">Area</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600 whitespace-nowrap">配点</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600">概要</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {[
+                      { area: 'Area I', ratio: '30〜40%', desc: 'Financial Reporting', note: '財務諸表を作れる・直せる・見抜ける能力' },
+                      { area: 'Area II', ratio: '30〜40%', desc: 'Select Balance Sheet Accounts', note: 'B/Sの各科目を計算できる・仕訳できる能力' },
+                      { area: 'Area III', ratio: '25〜35%', desc: 'Select Transactions', note: '特殊取引を正しく処理できる能力' },
+                    ].map(row => (
+                      <tr key={row.area} className="bg-white">
+                        <td className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap">{row.area}</td>
+                        <td className="px-4 py-3 text-blue-700 font-bold whitespace-nowrap">{row.ratio}</td>
+                        <td className="px-4 py-3 text-slate-600">
+                          <p className="font-medium text-slate-700">{row.desc}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{row.note}</p>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </SubSection>
+
+            {/* Area I */}
+            <AreaCard
+              area="Area I"
+              ratio="30〜40%"
+              title="Financial Reporting"
+              japaneseNote={
+                <p>NFPと政府会計は日本の会計基準にない概念です。アビタスのCh20・Ch21をしっかり固めてください。</p>
+              }
+            >
+              <p>財務諸表（B/S・P/L・包括利益・株主資本変動計算書・CF計算書）を試算表や証憑から作成・修正・検証する能力が問われます。</p>
+              <p>For-Profit企業の財務諸表だけでなく、非営利組織（NFP）と政府会計も出題されます。CF計算書は間接法での作成が必須です。また、連結財務諸表（子会社・非支配持分含む）の調整・消去仕訳も対象です。</p>
+            </AreaCard>
+
+            {/* Area II */}
+            <AreaCard
+              area="Area II"
+              ratio="30〜40%"
+              title="Select Balance Sheet Accounts"
+            >
+              <p>B/Sの各科目について「計算→仕訳→照合→差異調査」までできる実務的な能力が問われます。</p>
+              <p>対象科目は現金・売掛金（貸倒引当金含む）、棚卸資産（FIFO・LIFO・平均法・LCM）、有形固定資産（取得・減価償却・減損・売却）、投資有価証券（FV・償却原価・持分法）、無形資産、負債（AP・引当金・社債・リース負債）です。</p>
+              <p>単純な計算だけでなく、サブレジャーと総勘定元帳の差異を調査するという実務的なスキルが求められます。TBSで出やすいパターンです。</p>
+            </AreaCard>
+
+            {/* Area III */}
+            <AreaCard
+              area="Area III"
+              ratio="25〜35%"
+              title="Select Transactions"
+            >
+              <p>特殊な会計処理の知識と計算能力が問われます。</p>
+              <p>対象トピックは会計上の変更・誤謬訂正（遡及適用・将来適用の判断）、偶発債務・コミットメント、収益認識（5ステップモデル・NFPの寄付）、税効果会計（一時差異・繰延税金資産負債）、公正価値測定、リース会計（借手側・分類基準・計算）、後発事象です。</p>
+              <p>税効果会計とリース会計は計算量が多く、TBSで頻出です。アビタスのCh9（リース）・Ch15（税効果）は最重点エリアです。</p>
+            </AreaCard>
+
+            {/* スキルレベルの配分 */}
+            <SubSection title="スキルレベルの配分">
+              <div className="overflow-x-auto rounded-xl border border-slate-200 mb-3">
+                <table className="w-full text-sm border-collapse min-w-[340px]">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600">スキルレベル</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600 whitespace-nowrap">比率</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600">内容</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {[
+                      { level: 'Remembering & Understanding', ratio: '5〜15%', desc: '用語・定義・基準を覚えるレベル' },
+                      { level: 'Application', ratio: '45〜55%', desc: '仕訳・計算ができるレベル' },
+                      { level: 'Analysis', ratio: '35〜45%', desc: '複数の情報を組み合わせて判断できるレベル' },
+                    ].map(row => (
+                      <tr key={row.level} className="bg-white">
+                        <td className="px-4 py-3 font-medium text-slate-700 text-xs leading-snug">{row.level}</td>
+                        <td className="px-4 py-3 text-blue-700 font-bold whitespace-nowrap">{row.ratio}</td>
+                        <td className="px-4 py-3 text-slate-600 text-xs leading-snug">{row.desc}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                約90%は計算・判断・分析が必要です。理解なき暗記では合格できない試験です。
+              </p>
+            </SubSection>
+
+            {/* 学習への示唆 */}
+            <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-4 space-y-3">
+              <h3 className="text-base font-bold text-green-800">学習への示唆</h3>
+              <div className="space-y-2.5 text-sm text-green-900 leading-relaxed">
+                <p>3つのAreaは均等に対策してください。どれか1つでも弱いと致命的です。</p>
+                <p>NFPと政府会計は日本人が後回しにしがちですが、出題比率が高いので必ず押さえてください。</p>
+                <p>Ch9（リース）とCh15（税効果）はTBSで頻出かつ計算量が多いため、最重点エリアとして時間をかけて学習してください。</p>
+                <p>暗記より理解を優先してください。約90%が計算・分析問題であるFARでは、理解に基づいた学習が合格への近道です。</p>
+              </div>
+            </div>
 
           </div>
         </Section>
