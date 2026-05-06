@@ -78,6 +78,84 @@ const emptyGoal = (): GoalFields => ({
   round1_date: '', round2_date: '', round3_date: '', mock_exam_date: '',
 })
 
+function computeTypeData(
+  allResults: { question_no: string; rating: string; type: string | null; round: number; reason: string | null; subject: string }[],
+  recentResults: { answered_at: string; type: string | null; subject: string }[],
+  type: string,
+  subjectFilter: string | null,
+): TypeData {
+  const dailyCounts: TypeData['dailyCounts'] = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i)
+    dailyCounts.push({ date: d.toISOString().split('T')[0], dayLabel: DAY_JP[d.getDay()], count: 0 })
+  }
+  for (const r of recentResults) {
+    if ((r.type || 'MC') !== type) continue
+    if (subjectFilter && r.subject !== subjectFilter) continue
+    const idx = dailyCounts.findIndex(d => d.date === r.answered_at)
+    if (idx >= 0) dailyCounts[idx].count++
+  }
+
+  const r1 = allResults.filter(r =>
+    (r.type || 'MC') === type &&
+    r.round === 1 &&
+    (!subjectFilter || r.subject === subjectFilter)
+  )
+
+  let maru = 0, sankaku = 0, batsu = 0
+  const chMap: Record<number, { sankaku: number; batsu: number }> = {}
+  for (const r of r1) {
+    if (r.rating === '○') maru++
+    else if (r.rating === '△') sankaku++
+    else if (r.rating === '×') batsu++
+    const ch = extractChapter(r.question_no)
+    if (ch) {
+      if (!chMap[ch]) chMap[ch] = { sankaku: 0, batsu: 0 }
+      if (r.rating === '△') chMap[ch].sankaku++
+      if (r.rating === '×') chMap[ch].batsu++
+    }
+  }
+
+  const chapterDist = Array.from({ length: 21 }, (_, i) => ({
+    ch: i + 1, sankaku: chMap[i + 1]?.sankaku ?? 0, batsu: chMap[i + 1]?.batsu ?? 0,
+  }))
+
+  const roundTrend: RoundStat[] = [1, 2, 3].map(rnd => {
+    const rows = allResults.filter(r =>
+      (r.type || 'MC') === type &&
+      r.round === rnd &&
+      (!subjectFilter || r.subject === subjectFilter)
+    )
+    if (rows.length === 0) return { sankaku: 0, batsu: 0, total: 0, hasData: false }
+    return {
+      sankaku: rows.filter(r => r.rating === '△').length,
+      batsu: rows.filter(r => r.rating === '×').length,
+      total: rows.length,
+      hasData: true,
+    }
+  })
+
+  const batsuChMap: Record<number, Record<string, number>> = {}
+  for (const r of r1) {
+    if (r.rating !== '×') continue
+    const ch = extractChapter(r.question_no)
+    if (!ch) continue
+    if (!batsuChMap[ch]) batsuChMap[ch] = {}
+    const reason = (r.reason as string | null) || '未設定'
+    batsuChMap[ch][reason] = (batsuChMap[ch][reason] || 0) + 1
+  }
+  const batsuReasonByChapter = Object.entries(batsuChMap)
+    .map(([ch, reasons]) => ({
+      ch: parseInt(ch),
+      total: Object.values(reasons).reduce((a, b) => a + b, 0),
+      reasons,
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 10)
+
+  return { r1Count: r1.length, maru, sankaku, batsu, chapterDist, batsuReasonByChapter, dailyCounts, roundTrend }
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const [code, setCode] = useState<string | null>(null)
@@ -85,6 +163,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashData | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeType, setActiveType] = useState<AppType>('MC')
+  const [regSubjectTab, setRegSubjectTab] = useState<'REG1' | 'REG2'>('REG1')
   const [goals, setGoals] = useState<Goals>({ MC: emptyGoal(), TBS: emptyGoal(), 'RQ-MC': emptyGoal(), 'RQ-TBS': emptyGoal() })
   const [goalSaving, setGoalSaving] = useState(false)
   const [goalSaved, setGoalSaved] = useState(false)
@@ -97,16 +176,21 @@ export default function DashboardPage() {
   }, [router])
 
   async function loadAll(inviteCode: string) {
-    await Promise.all([loadData(inviteCode), loadGoals(inviteCode), fetchSubject(inviteCode)])
+    const sub = await fetchSubject(inviteCode)
+    await Promise.all([loadData(inviteCode, sub), loadGoals(inviteCode)])
   }
 
-  async function fetchSubject(inviteCode: string) {
+  async function fetchSubject(inviteCode: string): Promise<string | null> {
     const { data: row } = await supabase
       .from('invite_codes')
       .select('subject')
       .eq('code', inviteCode)
       .single()
-    if (row) setCodeSubject(row.subject)
+    if (row) {
+      setCodeSubject(row.subject)
+      return row.subject
+    }
+    return null
   }
 
   async function loadGoals(inviteCode: string) {
@@ -130,80 +214,32 @@ export default function DashboardPage() {
     }
   }
 
-  async function loadData(inviteCode: string) {
+  async function loadData(inviteCode: string, subject: string | null) {
     const today = new Date().toISOString().split('T')[0]
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
     const fromDate = sevenDaysAgo.toISOString().split('T')[0]
 
     const [{ data: allResults }, { data: recentResults }] = await Promise.all([
-      supabase.from('results').select('question_no, rating, type, round, reason').eq('code', inviteCode),
-      supabase.from('results').select('answered_at, type').eq('code', inviteCode).gte('answered_at', fromDate).lte('answered_at', today),
+      supabase.from('results').select('question_no, rating, type, round, reason, subject').eq('code', inviteCode),
+      supabase.from('results').select('answered_at, type, subject').eq('code', inviteCode).gte('answered_at', fromDate).lte('answered_at', today),
     ])
 
     const result: DashData = {}
-    for (const type of ALL_TYPES) {
-      const dailyCounts: TypeData['dailyCounts'] = []
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(); d.setDate(d.getDate() - i)
-        dailyCounts.push({ date: d.toISOString().split('T')[0], dayLabel: DAY_JP[d.getDay()], count: 0 })
-      }
-      if (recentResults) {
-        for (const r of recentResults) {
-          if ((r.type || 'MC') !== type) continue
-          const idx = dailyCounts.findIndex(d => d.date === r.answered_at)
-          if (idx >= 0) dailyCounts[idx].count++
+
+    if (subject === 'REG') {
+      for (const regSub of ['REG1', 'REG2'] as const) {
+        for (const type of ['MC', 'TBS'] as const) {
+          result[`${regSub}:${type}`] = computeTypeData(allResults || [], recentResults || [], type, regSub)
         }
       }
-
-      const r1 = (allResults || []).filter(r => (r.type || 'MC') === type && r.round === 1)
-      let maru = 0, sankaku = 0, batsu = 0
-      const chMap: Record<number, { sankaku: number; batsu: number }> = {}
-      for (const r of r1) {
-        if (r.rating === '○') maru++
-        else if (r.rating === '△') sankaku++
-        else if (r.rating === '×') batsu++
-        const ch = extractChapter(r.question_no)
-        if (ch) {
-          if (!chMap[ch]) chMap[ch] = { sankaku: 0, batsu: 0 }
-          if (r.rating === '△') chMap[ch].sankaku++
-          if (r.rating === '×') chMap[ch].batsu++
-        }
+      for (const type of ['RQ-MC', 'RQ-TBS'] as const) {
+        result[type] = computeTypeData(allResults || [], recentResults || [], type, 'REG')
       }
-      const chapterDist = Array.from({ length: 21 }, (_, i) => ({
-        ch: i + 1, sankaku: chMap[i + 1]?.sankaku ?? 0, batsu: chMap[i + 1]?.batsu ?? 0,
-      }))
-
-      const roundTrend: RoundStat[] = [1, 2, 3].map(rnd => {
-        const rows = (allResults || []).filter(r => (r.type || 'MC') === type && r.round === rnd)
-        if (rows.length === 0) return { sankaku: 0, batsu: 0, total: 0, hasData: false }
-        return {
-          sankaku: rows.filter(r => r.rating === '△').length,
-          batsu: rows.filter(r => r.rating === '×').length,
-          total: rows.length,
-          hasData: true,
-        }
-      })
-
-      const batsuChMap: Record<number, Record<string, number>> = {}
-      for (const r of r1) {
-        if (r.rating !== '×') continue
-        const ch = extractChapter(r.question_no)
-        if (!ch) continue
-        if (!batsuChMap[ch]) batsuChMap[ch] = {}
-        const reason = (r.reason as string | null) || '未設定'
-        batsuChMap[ch][reason] = (batsuChMap[ch][reason] || 0) + 1
+    } else {
+      for (const type of ALL_TYPES) {
+        result[type] = computeTypeData(allResults || [], recentResults || [], type, null)
       }
-      const batsuReasonByChapter = Object.entries(batsuChMap)
-        .map(([ch, reasons]) => ({
-          ch: parseInt(ch),
-          total: Object.values(reasons).reduce((a, b) => a + b, 0),
-          reasons,
-        }))
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 10)
-
-      result[type] = { r1Count: r1.length, maru, sankaku, batsu, chapterDist, batsuReasonByChapter, dailyCounts, roundTrend }
     }
 
     setData(result)
@@ -252,8 +288,14 @@ export default function DashboardPage() {
 
   if (!code) return null
 
-  const d = data?.[activeType]
-  const totalQ = TOTAL_Q[activeType]
+  const isRegUser = codeSubject === 'REG'
+  const isAbitussType = activeType === 'MC' || activeType === 'TBS'
+  const activeKey = (isRegUser && isAbitussType)
+    ? `${regSubjectTab}:${activeType}`
+    : activeType
+
+  const d = data?.[activeKey]
+  const totalQ = (isRegUser && isAbitussType) ? 0 : TOTAL_Q[activeType]
   const hasKnownTotal = totalQ > 0
   const completionPct = d && hasKnownTotal ? Math.min(Math.round((d.r1Count / totalQ) * 100), 100) : 0
 
@@ -268,26 +310,25 @@ export default function DashboardPage() {
   const maxRoundBar = d ? Math.max(...d.roundTrend.map(r => r.sankaku + r.batsu), 1) : 1
 
   const g = goals[activeType]
-  const r1Complete = d ? d.r1Count >= totalQ : false
+  const r1Complete = d ? (hasKnownTotal ? d.r1Count >= totalQ : false) : false
   const r2HasData = d ? d.roundTrend[1].hasData : false
 
-  // Round 1 goal metrics
   const r1Remaining = d ? Math.max(totalQ - d.r1Count, 0) : 0
   const r1Days = daysUntil(g.round1_date)
   const r1Quota = r1Days > 0 && r1Remaining > 0 ? Math.ceil(r1Remaining / r1Days) : null
 
-  // Round 2 goal metrics (△+× from round 1)
   const r2Remaining = d ? d.sankaku + d.batsu : 0
   const r2Days = daysUntil(g.round2_date)
   const r2Quota = r2Days > 0 && r2Remaining > 0 ? Math.ceil(r2Remaining / r2Days) : null
 
-  // Round 3 goal metrics (△+× from round 2)
   const r3Remaining = d ? d.roundTrend[1].sankaku + d.roundTrend[1].batsu : 0
   const r3Days = daysUntil(g.round3_date)
   const r3Quota = r3Days > 0 && r3Remaining > 0 ? Math.ceil(r3Remaining / r3Days) : null
 
-  // Mock exam countdown
   const mockDays = daysUntil(g.mock_exam_date)
+
+  const chapterLinkSubject = (isRegUser && isAbitussType) ? regSubjectTab : codeSubject
+  const chapterHref = chapterLinkSubject ? `/subject/${chapterLinkSubject}/${activeType}/1` : '#'
 
   return (
     <div className="min-h-screen bg-slate-50 pb-8">
@@ -317,6 +358,23 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* REG1 / REG2 サブタブ（REGユーザー + アビタスタイプのみ） */}
+      {isRegUser && isAbitussType && (
+        <div className="max-w-2xl mx-auto px-4 pt-2">
+          <div className="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl">
+            {(['REG1', 'REG2'] as const).map(reg => (
+              <button key={reg} onClick={() => setRegSubjectTab(reg)}
+                className={`py-2 rounded-lg text-xs font-bold transition-colors ${
+                  regSubjectTab === reg ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500'
+                }`}
+              >
+                {reg}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="text-slate-400">読み込み中...</div>
@@ -334,13 +392,10 @@ export default function DashboardPage() {
               <div className="divide-y divide-slate-100">
                 {top5Chapters.map((c, i) => {
                   const total = c.sankaku + c.batsu
-                  const href = codeSubject
-                    ? `/subject/${codeSubject}/${activeType}/1`
-                    : '#'
                   return (
                     <Link
                       key={c.ch}
-                      href={href}
+                      href={chapterHref}
                       className="flex items-center gap-3 px-5 py-3 active:bg-slate-50 transition-colors"
                     >
                       <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold shrink-0 ${
@@ -606,7 +661,6 @@ export default function DashboardPage() {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
               <h2 className="text-base font-semibold text-slate-700 mb-1">Chapter別 ×の理由内訳（1周目）</h2>
               <p className="text-xs text-slate-400 mb-3">×が多い順・上位10Chapter</p>
-              {/* 凡例（上部） */}
               <div className="flex flex-wrap gap-x-3 gap-y-1.5 mb-4 pb-3 border-b border-slate-100">
                 {ALL_REASONS.map(r => (
                   <span key={r} className="flex items-center gap-1 text-xs text-slate-500">

@@ -5,8 +5,21 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
-const SUBJECTS = ['FAR', 'BAR', 'REG', 'AUD']
-const TYPES = ['MC', 'TBS']
+const SUBJECTS_CONFIG = [
+  { id: 'FAR',  label: 'FAR',              alwaysShow: true },
+  { id: 'BAR',  label: 'BAR',              alwaysShow: true },
+  { id: 'REG',  label: 'REG（RQ）',         alwaysShow: false },
+  { id: 'REG1', label: 'REG1（アビタス）',   alwaysShow: false },
+  { id: 'REG2', label: 'REG2（アビタス）',   alwaysShow: false },
+  { id: 'AUD',  label: 'AUD',              alwaysShow: true },
+]
+const TYPES = ['MC', 'TBS', 'RQ-MC', 'RQ-TBS']
+const TYPE_LABELS: Record<string, string> = {
+  'MC': 'MC（アビタス）',
+  'TBS': 'TBS（アビタス）',
+  'RQ-MC': 'MC（RQ）',
+  'RQ-TBS': 'TBS（RQ）',
+}
 const ROUNDS = [1, 2, 3]
 
 type Counts = { maru: number; sankaku: number; batsu: number; total: number }
@@ -80,14 +93,17 @@ export default function SummaryPage() {
         </div>
       ) : (
         <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
-          {SUBJECTS.map(subject => {
-            const subjectData = summary[subject]
+          {SUBJECTS_CONFIG.map(subjectConf => {
+            const subjectData = summary[subjectConf.id]
             const hasData = subjectData && Object.keys(subjectData).length > 0
 
+            // REG1 / REG2 はデータがある場合のみ表示
+            if (!hasData && !subjectConf.alwaysShow) return null
+
             return (
-              <div key={subject} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div key={subjectConf.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="px-5 py-4 bg-slate-50 border-b border-slate-200">
-                  <h2 className="text-xl font-bold text-slate-800">{subject}</h2>
+                  <h2 className="text-xl font-bold text-slate-800">{subjectConf.label}</h2>
                 </div>
 
                 {!hasData ? (
@@ -100,11 +116,12 @@ export default function SummaryPage() {
 
                       return (
                         <div key={type}>
-                          {/* Type label */}
                           <div className="px-5 py-2 bg-slate-50 border-y border-slate-100">
                             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                              type === 'MC' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-                            }`}>{type}</span>
+                              type === 'MC' ? 'bg-blue-100 text-blue-700' :
+                              type === 'TBS' ? 'bg-purple-100 text-purple-700' :
+                              'bg-slate-200 text-slate-600'
+                            }`}>{TYPE_LABELS[type]}</span>
                           </div>
 
                           <div className="divide-y divide-slate-100">
