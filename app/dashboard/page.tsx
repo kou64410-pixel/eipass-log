@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { supabase, REASON_OPTIONS } from '@/lib/supabase'
 
 const DAY_JP = ['日', '月', '火', '水', '木', '金', '土']
 const TOTAL_Q: Record<string, number> = { MC: 639, TBS: 116, 'RQ-MC': 0, 'RQ-TBS': 0 }
@@ -14,6 +14,15 @@ const TYPE_LABELS: Record<AppType, string> = {
   'TBS': 'TBS（アビタス）',
   'RQ-MC': 'MC（RQ）',
   'RQ-TBS': 'TBS（RQ）',
+}
+const ALL_REASONS = [...REASON_OPTIONS, '未設定'] as const
+const REASON_COLORS: Record<string, string> = {
+  '論点を知らなかった':       'bg-red-600',
+  '知っていたが適用を間違えた': 'bg-red-400',
+  '計算ミス':               'bg-orange-500',
+  '問題文の読み間違い':       'bg-orange-300',
+  '勘での正解':              'bg-pink-400',
+  '未設定':                 'bg-slate-300',
 }
 
 function extractChapter(qno: string): number | null {
@@ -50,6 +59,7 @@ type TypeData = {
   sankaku: number
   batsu: number
   chapterDist: { ch: number; sankaku: number; batsu: number }[]
+  batsuReasonByChapter: { ch: number; total: number; reasons: Record<string, number> }[]
   dailyCounts: { date: string; dayLabel: string; count: number }[]
   roundTrend: RoundStat[]
 }
@@ -71,6 +81,7 @@ const emptyGoal = (): GoalFields => ({
 export default function DashboardPage() {
   const router = useRouter()
   const [code, setCode] = useState<string | null>(null)
+  const [codeSubject, setCodeSubject] = useState<string | null>(null)
   const [data, setData] = useState<DashData | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeType, setActiveType] = useState<AppType>('MC')
@@ -86,7 +97,16 @@ export default function DashboardPage() {
   }, [router])
 
   async function loadAll(inviteCode: string) {
-    await Promise.all([loadData(inviteCode), loadGoals(inviteCode)])
+    await Promise.all([loadData(inviteCode), loadGoals(inviteCode), fetchSubject(inviteCode)])
+  }
+
+  async function fetchSubject(inviteCode: string) {
+    const { data: row } = await supabase
+      .from('invite_codes')
+      .select('subject')
+      .eq('code', inviteCode)
+      .single()
+    if (row) setCodeSubject(row.subject)
   }
 
   async function loadGoals(inviteCode: string) {
@@ -117,7 +137,7 @@ export default function DashboardPage() {
     const fromDate = sevenDaysAgo.toISOString().split('T')[0]
 
     const [{ data: allResults }, { data: recentResults }] = await Promise.all([
-      supabase.from('results').select('question_no, rating, type, round').eq('code', inviteCode),
+      supabase.from('results').select('question_no, rating, type, round, reason').eq('code', inviteCode),
       supabase.from('results').select('answered_at, type').eq('code', inviteCode).gte('answered_at', fromDate).lte('answered_at', today),
     ])
 
@@ -165,7 +185,25 @@ export default function DashboardPage() {
         }
       })
 
-      result[type] = { r1Count: r1.length, maru, sankaku, batsu, chapterDist, dailyCounts, roundTrend }
+      const batsuChMap: Record<number, Record<string, number>> = {}
+      for (const r of r1) {
+        if (r.rating !== '×') continue
+        const ch = extractChapter(r.question_no)
+        if (!ch) continue
+        if (!batsuChMap[ch]) batsuChMap[ch] = {}
+        const reason = (r.reason as string | null) || '未設定'
+        batsuChMap[ch][reason] = (batsuChMap[ch][reason] || 0) + 1
+      }
+      const batsuReasonByChapter = Object.entries(batsuChMap)
+        .map(([ch, reasons]) => ({
+          ch: parseInt(ch),
+          total: Object.values(reasons).reduce((a, b) => a + b, 0),
+          reasons,
+        }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 10)
+
+      result[type] = { r1Count: r1.length, maru, sankaku, batsu, chapterDist, batsuReasonByChapter, dailyCounts, roundTrend }
     }
 
     setData(result)
@@ -218,6 +256,13 @@ export default function DashboardPage() {
   const totalQ = TOTAL_Q[activeType]
   const hasKnownTotal = totalQ > 0
   const completionPct = d && hasKnownTotal ? Math.min(Math.round((d.r1Count / totalQ) * 100), 100) : 0
+
+  const top5Chapters = d
+    ? d.chapterDist
+        .filter(c => c.sankaku + c.batsu > 0)
+        .sort((a, b) => (b.sankaku + b.batsu) - (a.sankaku + a.batsu))
+        .slice(0, 5)
+    : []
   const maxChBar = d ? Math.max(...d.chapterDist.map(c => c.sankaku + c.batsu), 1) : 1
   const maxDay = d ? Math.max(...d.dailyCounts.map(x => x.count), 1) : 1
   const maxRoundBar = d ? Math.max(...d.roundTrend.map(r => r.sankaku + r.batsu), 1) : 1
@@ -278,6 +323,54 @@ export default function DashboardPage() {
         </div>
       ) : d && (
         <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
+
+          {/* 要注意Chapter TOP5 */}
+          {top5Chapters.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="px-5 py-3 border-b border-slate-100">
+                <h2 className="text-base font-semibold text-slate-700">要注意 Chapter TOP5</h2>
+                <p className="text-xs text-slate-400 mt-0.5">△＋×の合計が多い順</p>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {top5Chapters.map((c, i) => {
+                  const total = c.sankaku + c.batsu
+                  const href = codeSubject
+                    ? `/subject/${codeSubject}/${activeType}/1`
+                    : '#'
+                  return (
+                    <Link
+                      key={c.ch}
+                      href={href}
+                      className="flex items-center gap-3 px-5 py-3 active:bg-slate-50 transition-colors"
+                    >
+                      <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold shrink-0 ${
+                        i === 0 ? 'bg-red-100 text-red-700' :
+                        i === 1 ? 'bg-orange-100 text-orange-700' :
+                        'bg-slate-100 text-slate-600'
+                      }`}>{i + 1}</span>
+                      <span className="text-sm font-bold text-slate-800 w-16 shrink-0">Ch {c.ch}</span>
+                      <div className="flex gap-1.5 flex-1">
+                        {c.sankaku > 0 && (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+                            △ {c.sankaku}
+                          </span>
+                        )}
+                        {c.batsu > 0 && (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                            × {c.batsu}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-slate-400 shrink-0">計 {total}</span>
+                      <svg className="w-4 h-4 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* 目標設定 */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -507,6 +600,55 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+
+          {/* Chapter別 ×の理由内訳 */}
+          {d.batsuReasonByChapter.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+              <h2 className="text-base font-semibold text-slate-700 mb-1">Chapter別 ×の理由内訳（1周目）</h2>
+              <p className="text-xs text-slate-400 mb-4">×が多い順・上位10Chapter</p>
+              <div className="space-y-4">
+                {d.batsuReasonByChapter.map(({ ch, total, reasons }) => {
+                  const sortedReasons = ALL_REASONS
+                    .map(r => ({ reason: r, count: reasons[r] || 0 }))
+                    .filter(r => r.count > 0)
+                    .sort((a, b) => b.count - a.count)
+                  return (
+                    <div key={ch}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-bold text-slate-700">Ch {ch}</span>
+                        <span className="text-xs text-red-500 font-semibold">× {total}</span>
+                      </div>
+                      <div className="space-y-1">
+                        {sortedReasons.map(({ reason, count }) => {
+                          const pct = Math.max((count / total) * 100, 4)
+                          return (
+                            <div key={reason} className="flex items-center gap-2">
+                              <div className="flex-1 h-5 bg-slate-50 rounded-sm overflow-hidden">
+                                <div
+                                  className={`h-full ${REASON_COLORS[reason]} rounded-sm`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-slate-500 w-4 text-right shrink-0">{count}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              {/* 凡例 */}
+              <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-x-3 gap-y-1.5">
+                {ALL_REASONS.map(r => (
+                  <span key={r} className="flex items-center gap-1 text-xs text-slate-500">
+                    <span className={`w-2.5 h-2.5 rounded-sm ${REASON_COLORS[r]} inline-block shrink-0`} />
+                    {r}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 周回別 △×推移 */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
