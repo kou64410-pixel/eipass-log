@@ -17,12 +17,12 @@ const TYPE_LABELS: Record<AppType, string> = {
 }
 const ALL_REASONS = [...REASON_OPTIONS, '未設定'] as const
 const REASON_COLORS: Record<string, string> = {
-  '論点を知らなかった':       'bg-red-600',
-  '知っていたが適用を間違えた': 'bg-red-400',
-  '計算ミス':               'bg-orange-500',
-  '問題文の読み間違い':       'bg-orange-300',
-  '勘での正解':              'bg-pink-400',
-  '未設定':                 'bg-slate-300',
+  '論点を知らなかった':       '#EF4444',
+  '知っていたが適用を間違えた': '#3B82F6',
+  '計算ミス':               '#F59E0B',
+  '問題文の読み間違い':       '#10B981',
+  '勘での正解':              '#8B5CF6',
+  '未設定':                 '#9CA3AF',
 }
 
 function extractChapter(qno: string): number | null {
@@ -605,7 +605,19 @@ export default function DashboardPage() {
           {d.batsuReasonByChapter.length > 0 && (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
               <h2 className="text-base font-semibold text-slate-700 mb-1">Chapter別 ×の理由内訳（1周目）</h2>
-              <p className="text-xs text-slate-400 mb-4">×が多い順・上位10Chapter</p>
+              <p className="text-xs text-slate-400 mb-3">×が多い順・上位10Chapter</p>
+              {/* 凡例（上部） */}
+              <div className="flex flex-wrap gap-x-3 gap-y-1.5 mb-4 pb-3 border-b border-slate-100">
+                {ALL_REASONS.map(r => (
+                  <span key={r} className="flex items-center gap-1 text-xs text-slate-500">
+                    <span
+                      className="w-2.5 h-2.5 rounded-sm inline-block shrink-0"
+                      style={{ backgroundColor: REASON_COLORS[r] }}
+                    />
+                    {r}
+                  </span>
+                ))}
+              </div>
               <div className="space-y-4">
                 {d.batsuReasonByChapter.map(({ ch, total, reasons }) => {
                   const sortedReasons = ALL_REASONS
@@ -625,8 +637,8 @@ export default function DashboardPage() {
                             <div key={reason} className="flex items-center gap-2">
                               <div className="flex-1 h-5 bg-slate-50 rounded-sm overflow-hidden">
                                 <div
-                                  className={`h-full ${REASON_COLORS[reason]} rounded-sm`}
-                                  style={{ width: `${pct}%` }}
+                                  className="h-full rounded-sm"
+                                  style={{ width: `${pct}%`, backgroundColor: REASON_COLORS[reason] }}
                                 />
                               </div>
                               <span className="text-xs text-slate-500 w-4 text-right shrink-0">{count}</span>
@@ -637,15 +649,6 @@ export default function DashboardPage() {
                     </div>
                   )
                 })}
-              </div>
-              {/* 凡例 */}
-              <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-x-3 gap-y-1.5">
-                {ALL_REASONS.map(r => (
-                  <span key={r} className="flex items-center gap-1 text-xs text-slate-500">
-                    <span className={`w-2.5 h-2.5 rounded-sm ${REASON_COLORS[r]} inline-block shrink-0`} />
-                    {r}
-                  </span>
-                ))}
               </div>
             </div>
           )}
