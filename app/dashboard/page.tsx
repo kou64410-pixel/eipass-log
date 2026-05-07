@@ -368,7 +368,7 @@ export default function DashboardPage() {
                   regSubjectTab === reg ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500'
                 }`}
               >
-                {reg}
+                {reg === 'REG1' ? 'REG2' : 'REG1'}
               </button>
             ))}
           </div>

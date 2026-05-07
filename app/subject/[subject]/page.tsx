@@ -137,15 +137,15 @@ export default function TypeSelectPage() {
                 onClick={() => router.push(`/subject/REG1/${regSubSelect}`)}
                 className="w-full flex items-center gap-4 px-5 py-4 bg-blue-50 rounded-xl text-left active:bg-blue-100 transition-colors border border-blue-100"
               >
-                <span className="text-xl font-bold text-blue-600">REG1</span>
-                <span className="text-slate-600 text-sm">税法</span>
+                <span className="text-xl font-bold text-blue-600">REG2</span>
+                <span className="text-slate-600 text-sm">商法</span>
               </button>
               <button
                 onClick={() => router.push(`/subject/REG2/${regSubSelect}`)}
                 className="w-full flex items-center gap-4 px-5 py-4 bg-blue-50 rounded-xl text-left active:bg-blue-100 transition-colors border border-blue-100"
               >
-                <span className="text-xl font-bold text-blue-600">REG2</span>
-                <span className="text-slate-600 text-sm">商法</span>
+                <span className="text-xl font-bold text-blue-600">REG1</span>
+                <span className="text-slate-600 text-sm">税法</span>
               </button>
             </div>
             <div className="px-4 pb-6">
