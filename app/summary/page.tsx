@@ -9,8 +9,8 @@ const SUBJECTS_CONFIG = [
   { id: 'FAR',  label: 'FAR',              alwaysShow: true },
   { id: 'BAR',  label: 'BAR',              alwaysShow: true },
   { id: 'REG',  label: 'REG（RQ）',         alwaysShow: false },
-  { id: 'REG1', label: 'REG1（アビタス）',   alwaysShow: false },
-  { id: 'REG2', label: 'REG2（アビタス）',   alwaysShow: false },
+  { id: 'REG1', label: 'REG2（アビタス）',   alwaysShow: false },
+  { id: 'REG2', label: 'REG1（アビタス）',   alwaysShow: false },
   { id: 'AUD',  label: 'AUD',              alwaysShow: true },
 ]
 const TYPES = ['MC', 'TBS', 'RQ-MC', 'RQ-TBS']
