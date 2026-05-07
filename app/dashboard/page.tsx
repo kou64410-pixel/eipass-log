@@ -228,17 +228,17 @@ export default function DashboardPage() {
     const result: DashData = {}
 
     if (subject === 'REG') {
-      for (const regSub of ['REG1', 'REG2'] as const) {
-        for (const type of ['MC', 'TBS'] as const) {
-          result[`${regSub}:${type}`] = computeTypeData(allResults || [], recentResults || [], type, regSub)
-        }
-      }
-      for (const type of ['RQ-MC', 'RQ-TBS'] as const) {
-        result[type] = computeTypeData(allResults || [], recentResults || [], type, 'REG')
-      }
+      const ar = allResults || []
+      const rr = recentResults || []
+      result['REG1:MC']  = computeTypeData(ar, rr, 'MC',     'REG1')
+      result['REG1:TBS'] = computeTypeData(ar, rr, 'TBS',    'REG1')
+      result['REG2:MC']  = computeTypeData(ar, rr, 'MC',     'REG2')
+      result['REG2:TBS'] = computeTypeData(ar, rr, 'TBS',    'REG2')
+      result['RQ-MC']    = computeTypeData(ar, rr, 'RQ-MC',  'REG')
+      result['RQ-TBS']   = computeTypeData(ar, rr, 'RQ-TBS', 'REG')
     } else {
-      for (const type of ALL_TYPES) {
-        result[type] = computeTypeData(allResults || [], recentResults || [], type, null)
+      for (const tp of ALL_TYPES) {
+        result[tp] = computeTypeData(allResults || [], recentResults || [], tp, null)
       }
     }
 
