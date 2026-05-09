@@ -365,6 +365,149 @@ export default function GuidePage() {
           </div>
         </Section>
 
+        <Divider />
+
+        {/* AUD Blueprint */}
+        <Section title="AUDブループリント解説">
+          <div className="space-y-6">
+
+            {/* 試験の構成 */}
+            <SubSection title="試験の構成">
+              <p className="text-sm text-slate-600 leading-relaxed">
+                AUDはMCQとTBSの2種類の問題で構成されています。スコアの配点はMCQ50%・TBS50%です。
+              </p>
+            </SubSection>
+
+            {/* 出題エリアと配点 */}
+            <SubSection title="出題エリアと配点">
+              <p className="text-sm text-slate-600 leading-relaxed mb-3">
+                4つのAreaで構成されています。どのAreaも満遍なく対策が必要です。
+              </p>
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-sm border-collapse min-w-[360px]">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600">Area</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600 whitespace-nowrap">配点</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600">概要</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {[
+                      { area: 'Area I',   ratio: '15〜25%', desc: 'Ethics, Professional Responsibilities and General Principles', note: '倫理・独立性・職業的責任と監査の基本原則' },
+                      { area: 'Area II',  ratio: '25〜35%', desc: 'Assessing Risk and Developing a Planned Response',             note: 'リスク評価と監査計画の立案能力' },
+                      { area: 'Area III', ratio: '30〜40%', desc: 'Performing Further Procedures and Obtaining Evidence',         note: '監査手続の実施と証拠収集能力' },
+                      { area: 'Area IV',  ratio: '10〜20%', desc: 'Forming Conclusions and Reporting',                           note: '監査報告書の作成と結論形成' },
+                    ].map(row => (
+                      <tr key={row.area} className="bg-white">
+                        <td className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap">{row.area}</td>
+                        <td className="px-4 py-3 text-blue-700 font-bold whitespace-nowrap">{row.ratio}</td>
+                        <td className="px-4 py-3 text-slate-600">
+                          <p className="font-medium text-slate-700">{row.desc}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{row.note}</p>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </SubSection>
+
+            {/* スキルレベルの配分 */}
+            <SubSection title="スキルレベルの配分">
+              <div className="overflow-x-auto rounded-xl border border-slate-200 mb-3">
+                <table className="w-full text-sm border-collapse min-w-[340px]">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600">スキルレベル</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600 whitespace-nowrap">比率</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600">内容</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {[
+                      { level: 'Remembering & Understanding', ratio: '30〜40%', desc: '用語・定義・基準を覚えるレベル' },
+                      { level: 'Application',                 ratio: '30〜40%', desc: '実際の監査手続に適用するレベル' },
+                      { level: 'Analysis',                    ratio: '15〜25%', desc: '複数情報を組み合わせて判断するレベル' },
+                      { level: 'Evaluation',                  ratio: '5〜15%',  desc: '監査意見・結論を判断するレベル' },
+                    ].map(row => (
+                      <tr key={row.level} className="bg-white">
+                        <td className="px-4 py-3 font-medium text-slate-700 text-xs leading-snug">{row.level}</td>
+                        <td className="px-4 py-3 text-blue-700 font-bold whitespace-nowrap">{row.ratio}</td>
+                        <td className="px-4 py-3 text-slate-600 text-xs leading-snug">{row.desc}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                FARと比べてRemembering &amp; Understandingの比率が高いのが特徴です。ただし全体の60〜80%は応用・分析・評価が必要なため、理解に基づいた学習が不可欠です。
+              </p>
+            </SubSection>
+
+            {/* Area I */}
+            <AreaCard
+              area="Area I"
+              ratio="15〜25%"
+              title="Ethics, Professional Responsibilities and General Principles"
+              japaneseNote={
+                <p>AICPAの倫理規定は細かいルールが多く、独立性の判断基準（Independence）がよく出題されます。アビタスのCh19を重点的に学習してください。</p>
+              }
+            >
+              <p>独立性・倫理規定（AICPAコード・SOX・SEC・PCAOB）、監査契約の前提条件、経営者・ガバナンス機関とのコミュニケーション、品質管理が対象です。</p>
+            </AreaCard>
+
+            {/* Area II */}
+            <AreaCard
+              area="Area II"
+              ratio="25〜35%"
+              title="Assessing Risk and Developing a Planned Response"
+              japaneseNote={
+                <p>内部統制の理解はCh6・Ch7の大きな山場です。COSOフレームワークの5つの構成要素を理解した上で、実際の統制テストの手続まで結びつけて学習してください。2026年版ブループリントからITリスク・データ分析（Audit Data Analytics）の比重が高まっています。アビタスのCh17（IT Controls）も重要です。</p>
+              }
+            >
+              <p>監査計画の策定、内部統制の理解（COSO含む）、重要性（Materiality）の設定、不正リスクの評価、監査リスクモデル（固有リスク・統制リスク・発見リスク）が対象です。</p>
+            </AreaCard>
+
+            {/* Area III */}
+            <AreaCard
+              area="Area III"
+              ratio="30〜40%"
+              title="Performing Further Procedures and Obtaining Evidence"
+              japaneseNote={
+                <p>Ch9の実証手続は勘定科目ごとに手続が細かく分かれています。なぜその手続を実施するのかという目的と結びつけて理解することが重要です。TBSでの出題が多いため、計算問題だけでなく手続の選択問題にも対応できるようにしてください。</p>
+              }
+            >
+              <p>最も出題比率が高いAreaです。統制テスト・実証手続の設計と実施、確認状・分析的手続・観察など各種監査証拠の収集、勘定科目別の実証手続（売掛金・棚卸・固定資産・負債等）が対象です。</p>
+            </AreaCard>
+
+            {/* Area IV */}
+            <AreaCard
+              area="Area IV"
+              ratio="10〜20%"
+              title="Forming Conclusions and Reporting"
+              japaneseNote={
+                <p>出題比率は低いですが、Ch3・Ch4の監査報告書は種類が多く混乱しやすいです。どの状況でどの報告書になるかを整理して覚えてください。</p>
+              }
+            >
+              <p>監査報告書（無限定・限定・否定・免責）の使い分け、証明業務・レビュー・コンパイレーション報告書、後発事象、特別目的フレームワークが対象です。</p>
+              <p>EvaluationがAUDで最も多く問われるAreaです。どの状況でどの監査報告書になるかを正確に判断できるレベルまで理解してください。</p>
+            </AreaCard>
+
+            {/* 学習への示唆 */}
+            <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-4 space-y-3">
+              <h3 className="text-base font-bold text-green-800">学習への示唆</h3>
+              <div className="space-y-2.5 text-sm text-green-900 leading-relaxed">
+                <p>Area IIIが最重点エリアです。Ch6〜Ch9で内部統制から実証手続まで一連の流れを理解してください。</p>
+                <p>独立性（Ch19）は細かいルールが多いですが、出題頻度が高いので確実に押さえてください。</p>
+                <p>監査報告書（Ch3・Ch4）は種類と使い分けを表で整理すると効率的です。</p>
+                <p>AUDはFARと違い評価・判断が求められる問題が多いです。単純な暗記では対応できないため、実務的なシナリオを想定しながら学習してください。</p>
+              </div>
+            </div>
+
+          </div>
+        </Section>
+
       </div>
     </div>
   )
