@@ -57,6 +57,13 @@ function AreaCard({ area, ratio, title, children, japaneseNote }: {
   )
 }
 
+function SkillCheck({ has }: { has: boolean }) {
+  if (has) return (
+    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 text-green-600 font-bold text-xs">○</span>
+  )
+  return <span className="text-slate-300 text-sm">—</span>
+}
+
 export default function GuidePage() {
   return (
     <div className="min-h-screen bg-slate-50 pb-12">
@@ -443,6 +450,127 @@ export default function GuidePage() {
               <p className="text-sm text-slate-600 leading-relaxed">
                 FARと比べてRemembering &amp; Understandingの比率が高いのが特徴です。ただし全体の60〜80%は応用・分析・評価が必要なため、理解に基づいた学習が不可欠です。
               </p>
+            </SubSection>
+
+            {/* 論点別 スキルレベル一覧 */}
+            <SubSection title="論点別 スキルレベル一覧">
+              <p className="text-sm text-slate-600 leading-relaxed mb-1">
+                各論点でどのレベルのスキルが求められるかを示しています。○がついている列のレベルまで対応できるように学習してください。
+              </p>
+              <p className="text-xs text-slate-400 mb-4">R&amp;U = Remembering &amp; Understanding ／ App = Application ／ Anal = Analysis ／ Eval = Evaluation</p>
+              <div className="space-y-5">
+                {[
+                  {
+                    area: 'Area I', ratio: '15〜25%',
+                    title: 'Ethics, Professional Responsibilities and General Principles',
+                    rows: [
+                      { t: 'AICPAコード・倫理規定',               r: true,  a: true,  n: false, e: false },
+                      { t: 'SEC・PCAOBの要件',                   r: true,  a: true,  n: false, e: false },
+                      { t: 'GAO・DOLの要件',                     r: true,  a: true,  n: false, e: false },
+                      { t: '職業的懐疑心・判断',                   r: true,  a: false, n: false, e: false },
+                      { t: '業務の性質と範囲',                     r: true,  a: false, n: false, e: false },
+                      { t: '業務契約の前提条件',                   r: true,  a: false, n: false, e: false },
+                      { t: '契約条件・エンゲージメントレター',        r: true,  a: true,  n: false, e: false },
+                      { t: '業務文書化の要件',                     r: true,  a: true,  n: false, e: false },
+                      { t: '経営者・ガバナンスとのコミュニケーション', r: true,  a: true,  n: false, e: false },
+                      { t: '監査品質管理',                        r: true,  a: false, n: false, e: false },
+                    ],
+                  },
+                  {
+                    area: 'Area II', ratio: '25〜35%',
+                    title: 'Assessing Risk and Developing a Planned Response',
+                    rows: [
+                      { t: '監査計画の策定',                         r: false, a: true,  n: false, e: false },
+                      { t: '企業環境の理解（外部要因）',               r: true,  a: false, n: false, e: false },
+                      { t: '企業環境の理解（内部要因）',               r: true,  a: false, n: false, e: false },
+                      { t: 'COSOフレームワーク',                     r: true,  a: false, n: false, e: false },
+                      { t: '内部統制環境・IT統制',                    r: true,  a: true,  n: false, e: false },
+                      { t: '業務プロセスと内部統制設計',               r: false, a: true,  n: true,  e: false },
+                      { t: 'サービス組織の利用',                      r: true,  a: true,  n: false, e: false },
+                      { t: '内部統制の限界・経営者による無効化',        r: true,  a: false, n: false, e: false },
+                      { t: '重要性の算定',                           r: true,  a: true,  n: false, e: false },
+                      { t: '許容虚偽表示・実施重要性',                 r: true,  a: true,  n: false, e: false },
+                      { t: '不正・誤謬による重要な虚偽表示リスク',       r: false, a: true,  n: true,  e: false },
+                      { t: '他者の業務の利用',                        r: false, a: true,  n: false, e: false },
+                      { t: '法令遵守',                              r: true,  a: true,  n: false, e: false },
+                      { t: '会計上の見積り',                         r: false, a: false, n: true,  e: false },
+                      { t: '関連当事者取引',                         r: false, a: true,  n: false, e: false },
+                    ],
+                  },
+                  {
+                    area: 'Area III', ratio: '30〜40%',
+                    title: 'Performing Further Procedures and Obtaining Evidence',
+                    rows: [
+                      { t: 'データの収集・変換',             r: false, a: true,  n: false, e: false },
+                      { t: 'データの信頼性検証',             r: false, a: true,  n: false, e: false },
+                      { t: 'データ分析（Audit Analytics）',  r: true,  a: true,  n: false, e: false },
+                      { t: '十分かつ適切な証拠',             r: false, a: true,  n: true,  e: false },
+                      { t: 'サンプリング手法',               r: true,  a: true,  n: false, e: false },
+                      { t: '統制テスト・詳細テスト',          r: false, a: true,  n: true,  e: false },
+                      { t: '分析的手続',                    r: false, a: true,  n: true,  e: false },
+                      { t: '外部確認',                      r: false, a: true,  n: true,  e: false },
+                      { t: '会計上の見積りの検証',           r: false, a: true,  n: false, e: true  },
+                      { t: '有価証券の評価',                 r: false, a: true,  n: false, e: false },
+                      { t: '棚卸資産',                      r: false, a: true,  n: false, e: false },
+                      { t: '訴訟・クレーム',                 r: false, a: true,  n: false, e: false },
+                      { t: '継続企業の前提',                 r: false, a: false, n: false, e: true  },
+                      { t: '虚偽表示と内部統制の不備',        r: false, a: true,  n: false, e: true  },
+                      { t: '経営者確認書',                   r: true,  a: false, n: false, e: false },
+                      { t: '後発事象',                      r: true,  a: true,  n: true,  e: false },
+                    ],
+                  },
+                  {
+                    area: 'Area IV', ratio: '10〜20%',
+                    title: 'Forming Conclusions and Reporting',
+                    rows: [
+                      { t: '監査報告書（意見形成）',          r: false, a: true,  n: false, e: true  },
+                      { t: '内部統制報告書',                 r: false, a: true,  n: false, e: true  },
+                      { t: '証明業務報告書',                 r: false, a: true,  n: false, e: false },
+                      { t: '合意された手続',                 r: false, a: true,  n: false, e: false },
+                      { t: 'コンパイレーション・レビュー',     r: true,  a: true,  n: false, e: false },
+                      { t: '法令遵守報告',                   r: true,  a: false, n: false, e: false },
+                      { t: '比較財務諸表・一貫性',            r: true,  a: false, n: false, e: false },
+                      { t: '年次報告書のその他情報',          r: true,  a: false, n: false, e: false },
+                      { t: '中間財務情報のレビュー',          r: true,  a: false, n: false, e: false },
+                      { t: '特別目的フレームワーク',          r: true,  a: false, n: false, e: false },
+                    ],
+                  },
+                ].map(section => (
+                  <div key={section.area} className="rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="font-bold text-slate-800 text-sm">{section.area}</span>
+                        <p className="text-xs text-slate-500 mt-0.5 leading-snug">{section.title}</p>
+                      </div>
+                      <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full shrink-0">{section.ratio}</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse min-w-[500px]">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200">
+                            <th className="text-left px-3 py-2 font-semibold text-slate-600">論点</th>
+                            <th className="text-center px-3 py-2 font-semibold text-slate-500 whitespace-nowrap">R&amp;U</th>
+                            <th className="text-center px-3 py-2 font-semibold text-slate-500 whitespace-nowrap">App</th>
+                            <th className="text-center px-3 py-2 font-semibold text-slate-500 whitespace-nowrap">Anal</th>
+                            <th className="text-center px-3 py-2 font-semibold text-slate-500 whitespace-nowrap">Eval</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {section.rows.map(row => (
+                            <tr key={row.t} className="bg-white">
+                              <td className="px-3 py-2.5 text-slate-700 leading-snug">{row.t}</td>
+                              <td className="px-3 py-2.5 text-center"><SkillCheck has={row.r} /></td>
+                              <td className="px-3 py-2.5 text-center"><SkillCheck has={row.a} /></td>
+                              <td className="px-3 py-2.5 text-center"><SkillCheck has={row.n} /></td>
+                              <td className="px-3 py-2.5 text-center"><SkillCheck has={row.e} /></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </SubSection>
 
             {/* Area I */}
