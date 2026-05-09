@@ -358,6 +358,98 @@ export default function GuidePage() {
               </p>
             </SubSection>
 
+            {/* 論点別 スキルレベル一覧 */}
+            <SubSection title="論点別 スキルレベル一覧">
+              <p className="text-sm text-slate-600 leading-relaxed mb-1">
+                各論点でどのレベルのスキルが求められるかを示しています。○がついている列のレベルまで対応できるように学習してください。
+              </p>
+              <p className="text-xs text-slate-400 mb-4">R&amp;U = Remembering &amp; Understanding ／ App = Application ／ Anal = Analysis ／ Eval = Evaluation</p>
+              <div className="space-y-5">
+                {[
+                  {
+                    area: 'Area I', ratio: '30〜40%',
+                    title: 'Financial Reporting',
+                    rows: [
+                      { t: 'B/S・P/L・包括利益・株主資本変動計算書',                    r: false, a: true,  n: true,  e: false },
+                      { t: 'CF計算書',                                               r: false, a: true,  n: true,  e: false },
+                      { t: '連結財務諸表',                                             r: false, a: true,  n: true,  e: false },
+                      { t: '財務諸表の注記',                                           r: false, a: true,  n: true,  e: false },
+                      { t: 'NFP財務諸表（財政状態計算書・活動計算書・CF計算書）',          r: true,  a: true,  n: false, e: false },
+                      { t: '州・地方政府会計（測定焦点・会計基準・基金）',                 r: true,  a: true,  n: false, e: false },
+                      { t: '公開会社の報告（EPS含む）',                                 r: true,  a: true,  n: false, e: false },
+                      { t: '特別目的フレームワーク',                                    r: true,  a: true,  n: false, e: false },
+                      { t: '財務諸表比率・パフォーマンス指標',                           r: false, a: true,  n: false, e: false },
+                    ],
+                  },
+                  {
+                    area: 'Area II', ratio: '30〜40%',
+                    title: 'Select Balance Sheet Accounts',
+                    rows: [
+                      { t: '現金・現金同等物',                      r: false, a: true,  n: true,  e: false },
+                      { t: '売掛金・貸倒引当金',                    r: false, a: true,  n: true,  e: false },
+                      { t: '棚卸資産',                             r: false, a: true,  n: true,  e: false },
+                      { t: '有形固定資産（取得・減価償却・減損・売却）', r: false, a: true,  n: true,  e: false },
+                      { t: '投資有価証券（公正価値）',               r: false, a: true,  n: false, e: false },
+                      { t: '投資有価証券（償却原価）',               r: true,  a: true,  n: false, e: false },
+                      { t: '持分法投資',                           r: false, a: true,  n: false, e: false },
+                      { t: '無形資産',                             r: false, a: true,  n: false, e: false },
+                      { t: '買掛金・未払費用',                      r: true,  a: true,  n: true,  e: false },
+                      { t: '社債・借入金',                         r: true,  a: true,  n: false, e: false },
+                      { t: '資本取引',                             r: false, a: true,  n: false, e: false },
+                    ],
+                  },
+                  {
+                    area: 'Area III', ratio: '25〜35%',
+                    title: 'Select Transactions',
+                    rows: [
+                      { t: '会計上の変更・誤謬訂正',               r: false, a: true,  n: true,  e: false },
+                      { t: '偶発債務・コミットメント',              r: true,  a: true,  n: true,  e: false },
+                      { t: '収益認識（5ステップモデル）',           r: true,  a: true,  n: false, e: false },
+                      { t: 'NFPの収益認識（寄付・拠出サービス）',   r: true,  a: true,  n: false, e: false },
+                      { t: '税効果会計',                          r: true,  a: true,  n: false, e: false },
+                      { t: '公正価値測定',                        r: false, a: true,  n: false, e: false },
+                      { t: 'リース会計（借手）',                   r: true,  a: true,  n: false, e: false },
+                      { t: '後発事象',                            r: true,  a: true,  n: true,  e: false },
+                    ],
+                  },
+                ].map(section => (
+                  <div key={section.area} className="rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="font-bold text-slate-800 text-sm">{section.area}</span>
+                        <p className="text-xs text-slate-500 mt-0.5 leading-snug">{section.title}</p>
+                      </div>
+                      <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full shrink-0">{section.ratio}</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse min-w-[500px]">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200">
+                            <th className="text-left px-3 py-2 font-semibold text-slate-600">論点</th>
+                            <th className="text-center px-3 py-2 font-semibold text-slate-500 whitespace-nowrap">R&amp;U</th>
+                            <th className="text-center px-3 py-2 font-semibold text-slate-500 whitespace-nowrap">App</th>
+                            <th className="text-center px-3 py-2 font-semibold text-slate-500 whitespace-nowrap">Anal</th>
+                            <th className="text-center px-3 py-2 font-semibold text-slate-500 whitespace-nowrap">Eval</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {section.rows.map(row => (
+                            <tr key={row.t} className="bg-white">
+                              <td className="px-3 py-2.5 text-slate-700 leading-snug">{row.t}</td>
+                              <td className="px-3 py-2.5 text-center"><SkillCheck has={row.r} /></td>
+                              <td className="px-3 py-2.5 text-center"><SkillCheck has={row.a} /></td>
+                              <td className="px-3 py-2.5 text-center"><SkillCheck has={row.n} /></td>
+                              <td className="px-3 py-2.5 text-center"><SkillCheck has={row.e} /></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SubSection>
+
             {/* 学習への示唆 */}
             <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-4 space-y-3">
               <h3 className="text-base font-bold text-green-800">学習への示唆</h3>
