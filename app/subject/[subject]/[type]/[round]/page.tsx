@@ -95,6 +95,7 @@ export default function QuestionListPage() {
   const [code, setCode] = useState<string | null>(null)
   const [questions, setQuestions] = useState<QuestionWithResult[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [prevRatings, setPrevRatings] = useState<Map<string, string>>(new Map())
 
@@ -117,14 +118,25 @@ export default function QuestionListPage() {
 
   const loadData = useCallback(async (inviteCode: string) => {
     setLoading(true)
+    setFetchError(null)
 
-    const { data: allQuestions } = await supabase
+    console.log('[loadData] query:', { subject, type, round })
+
+    const { data: allQuestions, error: qError } = await supabase
       .from('questions')
       .select('*')
       .eq('subject', subject)
       .eq('type', type)
       .order('sort_order')
 
+    console.log('[loadData] result:', { count: allQuestions?.length ?? 'null', error: qError?.message })
+
+    if (qError) {
+      console.error('questions fetch error:', qError)
+      setFetchError(qError.message)
+      setLoading(false)
+      return
+    }
     if (!allQuestions) { setLoading(false); return }
 
     const { data: currentResults } = await supabase
@@ -406,6 +418,11 @@ export default function QuestionListPage() {
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="text-slate-400">読み込み中...</div>
+        </div>
+      ) : fetchError ? (
+        <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+          <p className="text-red-500 text-lg font-semibold">データの取得に失敗しました</p>
+          <p className="text-slate-400 text-xs mt-2 font-mono break-all">{fetchError}</p>
         </div>
       ) : questions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
