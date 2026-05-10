@@ -728,6 +728,263 @@ export default function GuidePage() {
           </div>
         </Section>
 
+        <Divider />
+
+        {/* REG Blueprint */}
+        <Section title="REGブループリント解説">
+          <div className="space-y-6">
+
+            {/* 試験の構成 */}
+            <SubSection title="試験の構成">
+              <p className="text-sm text-slate-600 leading-relaxed">
+                REGはMCQとTBSの2種類の問題で構成されています。スコアの配点はMCQ50%・TBS50%です。
+              </p>
+            </SubSection>
+
+            {/* 出題エリアと配点 */}
+            <SubSection title="出題エリアと配点">
+              <p className="text-sm text-slate-600 leading-relaxed mb-3">
+                5つのAreaで構成されています。Area IVとArea Vの合計が45〜65%を占める最重点エリアです。
+              </p>
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-sm border-collapse min-w-[360px]">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600">Area</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600 whitespace-nowrap">配点</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600">概要</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {[
+                      { area: 'Area I',   ratio: '10〜20%', desc: 'Ethics, Professional Responsibilities and Federal Tax Procedures', note: '税務倫理・職業的責任・連邦税務手続' },
+                      { area: 'Area II',  ratio: '15〜25%', desc: 'Business Law',                                                    note: 'ビジネス法務の知識' },
+                      { area: 'Area III', ratio: '5〜15%',  desc: 'Federal Taxation of Property Transactions',                      note: '資産取引に関する連邦税務' },
+                      { area: 'Area IV',  ratio: '22〜32%', desc: 'Federal Taxation of Individuals',                                note: '個人に関する連邦税務' },
+                      { area: 'Area V',   ratio: '23〜33%', desc: 'Federal Taxation of Entities',                                   note: '法人・パートナーシップ等の連邦税務' },
+                    ].map(row => (
+                      <tr key={row.area} className="bg-white">
+                        <td className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap">{row.area}</td>
+                        <td className="px-4 py-3 text-blue-700 font-bold whitespace-nowrap">{row.ratio}</td>
+                        <td className="px-4 py-3 text-slate-600">
+                          <p className="font-medium text-slate-700">{row.desc}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{row.note}</p>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </SubSection>
+
+            {/* スキルレベルの配分 */}
+            <SubSection title="スキルレベルの配分">
+              <div className="overflow-x-auto rounded-xl border border-slate-200 mb-3">
+                <table className="w-full text-sm border-collapse min-w-[340px]">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600">スキルレベル</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600 whitespace-nowrap">比率</th>
+                      <th className="text-left px-4 py-2.5 font-semibold text-slate-600">内容</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {[
+                      { level: 'Remembering & Understanding', ratio: '25〜35%', desc: '用語・定義・基準を覚えるレベル' },
+                      { level: 'Application',                 ratio: '35〜45%', desc: '実際の税務処理に適用するレベル' },
+                      { level: 'Analysis',                    ratio: '25〜35%', desc: '複数情報を組み合わせて判断するレベル' },
+                      { level: 'Evaluation',                  ratio: 'なし',    desc: 'REGでは問われない' },
+                    ].map(row => (
+                      <tr key={row.level} className="bg-white">
+                        <td className="px-4 py-3 font-medium text-slate-700 text-xs leading-snug">{row.level}</td>
+                        <td className={`px-4 py-3 font-bold whitespace-nowrap ${row.ratio === 'なし' ? 'text-slate-300' : 'text-blue-700'}`}>{row.ratio}</td>
+                        <td className={`px-4 py-3 text-xs leading-snug ${row.ratio === 'なし' ? 'text-slate-300' : 'text-slate-600'}`}>{row.desc}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Area I・IIはRemembering &amp; Understandingが中心で、Area III〜VはApplicationとAnalysisが主体です。約65〜80%が応用・分析レベルのため、計算問題を確実に解ける力が必要です。
+              </p>
+            </SubSection>
+
+            {/* Area I */}
+            <AreaCard
+              area="Area I"
+              ratio="10〜20%"
+              title="Ethics, Professional Responsibilities and Federal Tax Procedures"
+            >
+              <p>IRS実務規定（Circular 230）、税務申告書作成者の規定、州会計士委員会・ライセンス、税務調査・審査・司法手続、開示・証拠保全要件、納税者ペナルティ、税務準備者の義務・責任、守秘義務が対象です。</p>
+              <p>Circular 230のルールを正確に覚えた上で、具体的なシナリオに当てはめる練習が必要です。</p>
+            </AreaCard>
+
+            {/* Area II */}
+            <AreaCard
+              area="Area II"
+              ratio="15〜25%"
+              title="Business Law"
+            >
+              <p>代理関係（権限・義務・責任）、契約の成立・履行・解除・違反、債権者・債務者関係・破産、雇用税・労働者分類・FCPAなど連邦法規、事業体の設立・運営・清算、オーナー・経営者の権利・義務が対象です。</p>
+              <p>Remembering &amp; Understandingが多いですが、具体的シナリオへの適用（Application）まで問われます。条文を覚えるだけでなく、事例で理解することが重要です。</p>
+            </AreaCard>
+
+            {/* Area III */}
+            <AreaCard
+              area="Area III"
+              ratio="5〜15%"
+              title="Federal Taxation of Property Transactions"
+            >
+              <p>資産の税務上の基礎価額、減価償却・償却（MACRS・Section 179・ボーナス減価償却）が対象です。</p>
+              <p>出題比率は低いですが、Area IVとのつながりが深く（キャピタルゲイン・資産の基礎価額など）後回しにしすぎないようにしてください。</p>
+            </AreaCard>
+
+            {/* Area IV */}
+            <AreaCard
+              area="Area IV"
+              ratio="22〜32%"
+              title="Federal Taxation of Individuals"
+            >
+              <p>総所得の算入・除外、パス・スルー事業体からの収益報告、AGI・課税所得の調整・控除（QBI控除含む）、損失制限（キャピタルロス・受動的損失）、申告ステータス、税額・税額控除の計算が対象です。</p>
+              <p>ApplicationとAnalysisが主体です。計算が中心となるため、実際に手を動かして計算できるレベルまで仕上げることが重要です。</p>
+            </AreaCard>
+
+            {/* Area V */}
+            <AreaCard
+              area="Area V"
+              ratio="23〜33%"
+              title="Federal Taxation of Entities"
+            >
+              <p>会計上の利益と課税所得の差異、C法人の課税所得・税額・税額控除、州・地方税（ネクサス・配賦）、S法人の適格要件・課税所得・株主持分基礎価額、パートナーシップの課税所得・パートナーの持分基礎価額、LLC・免税組織が対象です。</p>
+              <p>Area IVと合わせてREGの中核を成すAreaです。パス・スルー課税の仕組みを正確に理解することが合格への鍵です。</p>
+            </AreaCard>
+
+            {/* 論点別 スキルレベル一覧 */}
+            <SubSection title="論点別 スキルレベル一覧">
+              <p className="text-sm text-slate-600 leading-relaxed mb-1">
+                各論点でどのレベルのスキルが求められるかを示しています。○がついている列のレベルまで対応できるように学習してください。
+              </p>
+              <p className="text-xs text-slate-400 mb-4">R&amp;U = Remembering &amp; Understanding ／ App = Application ／ Anal = Analysis ／ Eval = Evaluation</p>
+              <div className="space-y-5">
+                {[
+                  {
+                    area: 'Area I', ratio: '10〜20%',
+                    title: 'Ethics, Professional Responsibilities and Federal Tax Procedures',
+                    rows: [
+                      { t: 'IRS実務規定（Circular 230）',        r: true,  a: true,  n: false, e: false },
+                      { t: '税務申告書作成者の規定',               r: true,  a: true,  n: false, e: false },
+                      { t: '州会計士委員会・ライセンス',            r: true,  a: false, n: false, e: false },
+                      { t: '税務調査・審査・司法手続',             r: true,  a: false, n: false, e: false },
+                      { t: '開示・証拠保全要件',                  r: true,  a: true,  n: false, e: false },
+                      { t: '納税者ペナルティ',                    r: true,  a: true,  n: false, e: false },
+                      { t: '税務権限の階層',                      r: true,  a: false, n: false, e: false },
+                      { t: '税務準備者の義務・責任',               r: true,  a: true,  n: false, e: false },
+                      { t: '守秘義務・特権的コミュニケーション',     r: true,  a: true,  n: false, e: false },
+                    ],
+                  },
+                  {
+                    area: 'Area II', ratio: '15〜25%',
+                    title: 'Business Law',
+                    rows: [
+                      { t: '代理関係（権限・義務・責任）',         r: true,  a: true,  n: false, e: false },
+                      { t: '契約の成立・履行・解除・違反',         r: true,  a: true,  n: false, e: false },
+                      { t: '債権者・債務者関係・破産',             r: true,  a: true,  n: false, e: false },
+                      { t: '雇用税・労働者分類・FCPAなど',         r: true,  a: true,  n: false, e: false },
+                      { t: '事業体の設立・運営・清算',             r: true,  a: false, n: false, e: false },
+                      { t: 'オーナー・経営者の権利・義務',         r: true,  a: true,  n: false, e: false },
+                    ],
+                  },
+                  {
+                    area: 'Area III', ratio: '5〜15%',
+                    title: 'Federal Taxation of Property Transactions',
+                    rows: [
+                      { t: '資産の税務上の基礎価額',                       r: false, a: true,  n: false, e: false },
+                      { t: '減価償却・償却（MACRS・Section 179）', r: false, a: true,  n: true,  e: false },
+                    ],
+                  },
+                  {
+                    area: 'Area IV', ratio: '22〜32%',
+                    title: 'Federal Taxation of Individuals',
+                    rows: [
+                      { t: '総所得の算入・除外',                      r: false, a: true,  n: true,  e: false },
+                      { t: 'パス・スルー事業体からの収益報告',          r: false, a: true,  n: false, e: false },
+                      { t: 'AGI・課税所得の調整・控除',               r: false, a: true,  n: true,  e: false },
+                      { t: '損失制限（キャピタルロス・受動的損失）',      r: false, a: true,  n: true,  e: false },
+                      { t: '申告ステータス',                          r: true,  a: true,  n: false, e: false },
+                      { t: '税額・税額控除の計算',                     r: true,  a: true,  n: false, e: false },
+                    ],
+                  },
+                  {
+                    area: 'Area V', ratio: '23〜33%',
+                    title: 'Federal Taxation of Entities',
+                    rows: [
+                      { t: '会計上の利益と課税所得の差異',             r: false, a: true,  n: true,  e: false },
+                      { t: 'C法人の課税所得・税額・税額控除',          r: false, a: true,  n: false, e: false },
+                      { t: '州・地方税（ネクサス・配賦）',             r: true,  a: true,  n: false, e: false },
+                      { t: 'S法人の適格要件・課税所得',               r: true,  a: true,  n: true,  e: false },
+                      { t: 'S法人の株主持分基礎価額',                 r: false, a: true,  n: false, e: false },
+                      { t: 'パートナーシップの課税所得',               r: false, a: true,  n: true,  e: false },
+                      { t: 'パートナーの持分基礎価額',                 r: false, a: true,  n: false, e: false },
+                      { t: 'LLC・免税組織',                          r: true,  a: false, n: false, e: false },
+                    ],
+                  },
+                ].map(section => (
+                  <div key={section.area} className="rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="font-bold text-slate-800 text-sm">{section.area}</span>
+                        <p className="text-xs text-slate-500 mt-0.5 leading-snug">{section.title}</p>
+                      </div>
+                      <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full shrink-0">{section.ratio}</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse min-w-[500px]">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200">
+                            <th className="text-left px-3 py-2 font-semibold text-slate-600">論点</th>
+                            <th className="text-center px-3 py-2 font-semibold text-slate-500 whitespace-nowrap">R&amp;U</th>
+                            <th className="text-center px-3 py-2 font-semibold text-slate-500 whitespace-nowrap">App</th>
+                            <th className="text-center px-3 py-2 font-semibold text-slate-500 whitespace-nowrap">Anal</th>
+                            <th className="text-center px-3 py-2 font-semibold text-slate-500 whitespace-nowrap">Eval</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {section.rows.map(row => (
+                            <tr key={row.t} className="bg-white">
+                              <td className="px-3 py-2.5 text-slate-700 leading-snug">{row.t}</td>
+                              <td className="px-3 py-2.5 text-center"><SkillCheck has={row.r} /></td>
+                              <td className="px-3 py-2.5 text-center"><SkillCheck has={row.a} /></td>
+                              <td className="px-3 py-2.5 text-center"><SkillCheck has={row.n} /></td>
+                              <td className="px-3 py-2.5 text-center"><SkillCheck has={row.e} /></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SubSection>
+
+            {/* 学習への示唆 */}
+            <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-4 space-y-3">
+              <h3 className="text-base font-bold text-green-800">学習への示唆</h3>
+              <div className="space-y-2.5 text-sm text-green-900 leading-relaxed">
+                <p>Area IV（個人課税）とArea V（法人課税）で合計45〜65%を占めます。この2つのAreaを最重点に置いてください。</p>
+                <p>Area I・IIは暗記中心ですが、具体的なシナリオへの適用まで問われます。条文を覚えるだけでなく、事例で理解することが重要です。</p>
+                <p>Area IIIは出題比率が低いですが、Area IVとのつながりが深く（キャピタルゲイン・資産の基礎価額など）後回しにしすぎないようにしてください。</p>
+              </div>
+            </div>
+
+            {/* 日本人が特に注意すべき点 */}
+            <div className="bg-amber-50 border-l-4 border-amber-400 rounded-r-xl px-4 py-3 text-sm text-amber-900 leading-relaxed">
+              <p className="font-semibold mb-1">日本人が特に注意すべき点</p>
+              <p>米国税法の概念（AGI・QBI控除・MACRS・パス・スルー課税など）は日本の税務とは異なる体系です。日本の税務知識を前提にせず、米国税法を独立した体系として学習してください。</p>
+            </div>
+
+          </div>
+        </Section>
+
       </div>
     </div>
   )
