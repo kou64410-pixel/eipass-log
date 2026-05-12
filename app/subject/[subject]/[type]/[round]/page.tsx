@@ -120,7 +120,13 @@ export default function QuestionListPage() {
     setLoading(true)
     setFetchError(null)
 
-    console.log('[loadData] query:', { subject, type, round })
+    // Diagnostic: what types are accessible for this subject?
+    const { data: diagData } = await supabase
+      .from('questions')
+      .select('type')
+      .eq('subject', subject)
+    const accessibleTypes = [...new Set((diagData ?? []).map((q: { type: string }) => q.type))]
+    console.log(`[diag] accessible types for subject="${subject}":`, accessibleTypes.length ? accessibleTypes : '(none - RLS blocked?)')
 
     const { data: allQuestions, error: qError } = await supabase
       .from('questions')
@@ -129,7 +135,7 @@ export default function QuestionListPage() {
       .eq('type', type)
       .order('sort_order')
 
-    console.log('[loadData] result:', { count: allQuestions?.length ?? 'null', error: qError?.message })
+    console.log('[loadData] result:', { subject, type, count: allQuestions?.length ?? 'null', error: qError?.message })
 
     if (qError) {
       console.error('questions fetch error:', qError)
